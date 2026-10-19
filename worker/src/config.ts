@@ -16,6 +16,8 @@ export interface Env {
   APPLE_TEAM_ID?: string;
   APPLE_KEY_ID?: string;
   APPLE_PRIVATE_KEY?: string;
+  ACCESS_TEAM_DOMAIN?: string;
+  ACCESS_AUD?: string;
   MAX_UPLOAD_BYTES?: string;
 }
 

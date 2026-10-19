@@ -117,24 +117,13 @@ fly deploy
 Cost: ≈ $6/mo. Optional: Cloudflare R2 for continuous SQLite backups
 (`R2_*` secrets) — see `docs/DEPLOY.md`.
 
-## Option C — Render (one-click button, free demo)
+## Option C — Cloudflare Workers (the `cloudflare-deploy` branch)
 
-The repo ships a `render.yaml` blueprint, so Render's deploy button works out
-of the box (Docker runtime, generated `SESSION_SECRET`, `SELF_HOSTED=true`,
-demo seeded). Get your button with
-`https://render.com/deploy?repo=<your-github-repo-url>` — the in-app tutorial
-at `/self-host` builds it for you from a pasted repo URL. **Render's free plan
-has no persistent disk: the map resets on every restart/redeploy** — the
-blueprint deploys on free as a live demo; switch the service to Starter
-(~$7/mo) and add the `/data` disk for a real store (the blueprint's comments
-show how). After the first deploy, add `PUBLIC_BASE_URL` = your
-`onrender.com` URL under Environment.
-
-1. [render.com](https://render.com) → **New → Blueprint** → connect the repo.
-2. Blueprint applies: free plan, env vars (add `PUBLIC_BASE_URL` after the
-   URL exists). Auto-deploy on push is on by default.
-
-Cost: free (demo, ephemeral); Starter ≈ $7/mo + ~$0.25/GB disk.
+A full Workers port lives on the `cloudflare-deploy` branch (`worker/`):
+Hono + **D1** database + **R2** media + the SPA from the edge. Free tier,
+persistent, one-click via the Deploy-to-Cloudflare button, and Cloudflare
+Access (free ≤50 users) can serve as the sign-in. See `worker/README.md`
+on that branch.
 
 ## Option D — Your own VPS + Cloudflare (full control)
 

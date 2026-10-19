@@ -98,7 +98,7 @@ interface JwkCacheEntry {
 }
 const jwkCache = new Map<string, JwkCacheEntry>(); // per-isolate; JWKS rotate hourly
 
-async function fetchJwks(jwksUrl: string): Promise<Record<string, any>[]> {
+export async function fetchJwks(jwksUrl: string): Promise<Record<string, any>[]> {
   const cached = jwkCache.get(jwksUrl);
   if (cached && Date.now() - cached.fetchedAt < 60 * 60 * 1000) return cached.keys;
   const res = await fetch(jwksUrl, { signal: AbortSignal.timeout(10_000) });
@@ -110,6 +110,32 @@ async function fetchJwks(jwksUrl: string): Promise<Record<string, any>[]> {
 }
 
 /**
+ * Verify an ES256 JWT against a concrete set of JWKs:
+ * signature, issuer, audience, expiry and (optionally) nonce.
+ */
+export async function verifyEs256WithKeys(
+  token: string,
+  keys: Record<string, any>[],
+  { issuer, audience, nonce }: { issuer?: string | string[]; audience?: string; nonce?: string } = {}
+): Promise<Record<string, any>> {
+  const { header, payload, signingInput, signature } = decodeJwt(token);
+  if (header.alg !== 'ES256') throw new Error(`unexpected alg ${header.alg}`);
+  const jwk = keys.find((k) => k.kid === header.kid) ?? keys[0];
+  if (!jwk) throw new Error('no matching JWKS key');
+  const key = await crypto.subtle.importKey('jwk', jwk as JsonWebKey, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+  const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, signature as BufferSource, utf8(signingInput));
+  if (!ok) throw new Error('bad id_token signature');
+  if (issuer !== undefined) {
+    const issuers = Array.isArray(issuer) ? issuer : [issuer];
+    if (!issuers.includes(payload.iss)) throw new Error(`bad issuer ${payload.iss}`);
+  }
+  if (audience !== undefined && payload.aud !== audience) throw new Error('bad audience');
+  if (!payload.exp || payload.exp * 1000 < Date.now() - 60_000) throw new Error('expired id_token');
+  if (nonce && payload.nonce !== nonce) throw new Error('nonce mismatch');
+  return payload;
+}
+
+/**
  * Verify an ES256 OIDC id_token against a JWKS endpoint:
  * signature, issuer, audience, expiry and (optionally) nonce.
  */
@@ -117,18 +143,6 @@ export async function verifyOidcToken(
   token: string,
   { jwksUrl, issuer, audience, nonce }: { jwksUrl: string; issuer: string | string[]; audience: string; nonce?: string }
 ): Promise<Record<string, any>> {
-  const { header, payload, signingInput, signature } = decodeJwt(token);
-  if (header.alg !== 'ES256') throw new Error(`unexpected alg ${header.alg}`);
   const keys = await fetchJwks(jwksUrl);
-  const jwk = keys.find((k) => k.kid === header.kid) ?? keys[0];
-  if (!jwk) throw new Error('no matching JWKS key');
-  const key = await crypto.subtle.importKey('jwk', jwk as JsonWebKey, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
-  const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, signature as BufferSource, utf8(signingInput));
-  if (!ok) throw new Error('bad id_token signature');
-  const issuers = Array.isArray(issuer) ? issuer : [issuer];
-  if (!issuers.includes(payload.iss)) throw new Error(`bad issuer ${payload.iss}`);
-  if (payload.aud !== audience) throw new Error('bad audience');
-  if (!payload.exp || payload.exp * 1000 < Date.now() - 60_000) throw new Error('expired id_token');
-  if (nonce && payload.nonce !== nonce) throw new Error('nonce mismatch');
-  return payload;
+  return verifyEs256WithKeys(token, keys, { issuer, audience, nonce });
 }

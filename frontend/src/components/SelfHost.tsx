@@ -59,35 +59,6 @@ function SecretRow() {
 
 /* One-click deploy button -------------------------------------------------- */
 
-function DeployButton() {
-  const [repo, setRepo] = useState('https://github.com/you/storemap');
-  const repoTrim = repo.trim().replace(/\.git$/, '');
-  const repoOk = /^https:\/\/\S+/.test(repoTrim);
-  return (
-    <div className="tut-deploy">
-      <label className="field">
-        <span>Paste the GitHub URL of <b>your copy</b> of this repo</span>
-        <input
-          className="input"
-          type="url"
-          placeholder="https://github.com/you/storemap"
-          value={repo}
-          onChange={(e) => setRepo(e.target.value)}
-        />
-      </label>
-      <div className="tut-deploy-btns">
-        {repoOk ? (
-          <a className="btn primary tut-deploy-btn" href={`https://render.com/deploy?repo=${encodeURIComponent(repoTrim)}`} target="_blank" rel="noreferrer">
-            🚀 Deploy to Render (free)
-          </a>
-        ) : (
-          <span className="muted">Add a https:// repo URL to light up the Render button.</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function CloudflareButton() {
   const [repo, setRepo] = useState('https://github.com/you/storemap');
   const repoTrim = repo.trim().replace(/\.git$/, '');
@@ -130,7 +101,8 @@ export default function SelfHost() {
           <p>
             StoreMap is one small Node.js process with one SQLite file — no databases to install, no
             services to wire up. Self-host it and you get everything, including the paid-tier features:
-            product photos are always included in local mode. Three ways to get there — all free.
+            product photos are always included in local mode. Two ways to get there — both free, both
+            with real sign-in.
           </p>
         </header>
 
@@ -145,11 +117,6 @@ export default function SelfHost() {
             <b>Cloudflare, always on</b>
             <span>One click to Workers + D1 — free tier, persistent, 24/7.</span>
           </a>
-          <a href="#cloud" className="card tut-path">
-            <span className="num">3</span>
-            <b>Free cloud demo</b>
-            <span>One click to Render. Great for sharing a look — resets on restart.</span>
-          </a>
         </nav>
 
         <h3 className="tut-choose-title">Which one is for me?</h3>
@@ -162,8 +129,6 @@ export default function SelfHost() {
               <tr><td>1 · Your computer</td><td>free</td><td>yes</td><td>trying it, drawing your map</td></tr>
               <tr><td>1 · Your computer + free tunnel</td><td>free</td><td>yes</td><td>real shoppers at $0 — while the computer is on</td></tr>
               <tr><td>2 · Cloudflare Workers (one click)</td><td>free tier</td><td>yes — data lives in D1</td><td>always-on at $0</td></tr>
-              <tr><td>3 · Render, free plan (one click)</td><td>free</td><td><b>no</b> — no disk on free</td><td>a live demo you can share</td></tr>
-              <tr><td>Netlify / Cloudflare Pages</td><td>free</td><td>—</td><td>not compatible as-is — <a href="#serverless">here's why</a></td></tr>
             </tbody>
           </table>
         </div>
@@ -194,6 +159,26 @@ SELF_HOSTED=true npm start`}</CodeBlock>
             Go to <Link to="/login">/login</Link> and press{' '}
             <b>“Open the demo maps — no sign-in”</b> to edit them, no account needed. Your data lives
             in <code>backend/data/</code>; delete it for a factory reset.
+          </p>
+
+          <h3>Real sign-in locally (optional)</h3>
+          <p>
+            The passwordless demo login is on by default. Prefer real accounts? The backend reads{' '}
+            <code>backend/.env</code> — create it once and Google sign-in works locally:
+          </p>
+          <CodeBlock>{`# backend/.env
+SELF_HOSTED=true
+ENABLE_DEV_LOGIN=false            # turn the passwordless door off
+PUBLIC_BASE_URL=http://localhost:8787
+GOOGLE_CLIENT_ID=<from console.cloud.google.com>
+GOOGLE_CLIENT_SECRET=<same place>
+
+# in the Google console → Credentials → OAuth client ID (Web application):
+#   Authorized redirect URI: http://localhost:8787/api/auth/google/callback`}</CodeBlock>
+          <p>
+            Restart <code>npm start</code> and sign in with Google. Apple sign-in works the same way
+            (its setup lives in the README). On the Cloudflare deployment there's a third option —
+            Cloudflare Access — covered below.
           </p>
 
           <h3>Now give it a public address — a free tunnel</h3>
@@ -261,80 +246,44 @@ PUBLIC_BASE_URL=https://your-tunnel-url TRUST_PROXY=true npm start`}</CodeBlock>
                 <tr><td>Cost</td><td>free tier — Workers free plan covers a small store's traffic</td></tr>
                 <tr><td>You get</td><td><code>storemap.&lt;you&gt;.workers.dev</code> URL, D1 database, R2 bucket — all provisioned by the button</td></tr>
                 <tr><td>Persists?</td><td><b>yes</b> — D1 is a real database; the map survives restarts and redeploys (point-in-time recovery included)</td></tr>
-                <tr><td>Sign-in</td><td>“Open the demo maps” is on by default — fine while you evaluate. For a public store, turn it off and add Google/Apple OAuth (<code>wrangler.jsonc</code> comments show how)</td></tr>
                 <tr><td>QR codes</td><td>set <code>PUBLIC_BASE_URL</code> to a custom domain when you attach one (it defaults to the workers.dev origin)</td></tr>
               </tbody>
             </table>
           </div>
-          <p className="muted">
-            This port lives on the <code>cloudflare-deploy</code> branch — merge it (or deploy directly
-            from the branch) to use the button. Full details in <code>worker/README.md</code>. Prefer
-            managing it yourself? <code>cd worker && npx wrangler deploy</code> does the same thing
-            from your terminal.
-          </p>
-        </section>
 
-        {/* -------------------------------------------------------------- */}
-        <section id="cloud">
-          <h2>3 · Free cloud demo — one click</h2>
-          <p>
-            Want to show StoreMap to someone without installing anything? The repo ships a{' '}
-            <code>render.yaml</code> blueprint, so Render deploys it in one click: Docker build,{' '}
-            <code>SELF_HOSTED=true</code> (demo maps seeded), auto-generated session secret.
-          </p>
-          <DeployButton />
-          <div className="card tut-table-wrap">
-            <table className="tut-table">
-              <tbody>
-                <tr><td>Cost</td><td>free — Render's free plan</td></tr>
-                <tr><td>The catch</td><td><b>no persistent disk on free</b> — the map and uploads reset on every restart/redeploy, and the instance sleeps after 15 idle minutes</td></tr>
-                <tr><td>Good for</td><td>a live demo for stakeholders, trying the editor from any device</td></tr>
-                <tr><td>After deploy</td><td>open <b>Environment</b> and add <code>PUBLIC_BASE_URL</code> = your <code>onrender.com</code> address so share links and QR codes work</td></tr>
-                <tr><td>Real store?</td><td>keep the real map on your own computer (option 1) — or switch the Render service to Starter (~$7/mo) and add the <code>/data</code> disk (the blueprint's comments show how)</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* -------------------------------------------------------------- */}
-        <section id="serverless">
-          <h2>What about Netlify or Cloudflare <i>Pages</i>?</h2>
-          <p>
-            They're fantastic for static sites and APIs — but the Node StoreMap server needs three
-            things their serverless model doesn't have, on any plan, free or paid:
-          </p>
+          <h3>Sign-in — three ways, pick one</h3>
           <div className="tut-callout">
             <ul>
               <li>
-                <b>A persistent disk.</b> Function filesystems are ephemeral — there's nowhere for{' '}
-                <code>storemap.db</code> or uploaded images to live between requests.
+                <b>Demo login (default, zero setup).</b> “Open the demo maps — no sign-in” works out
+                of the box. Great while you evaluate; turn it off before going public.
               </li>
               <li>
-                <b>A long-running Node process.</b> StoreMap is an Express server; Netlify runs
-                short-lived functions, and Cloudflare's runtime isn't Node at all.
+                <b>Google / Apple sign-in (≈15 min).</b> Already implemented — create OAuth
+                credentials, set them as Worker secrets, and match the redirect URI. Same recipe as
+                the local option above, with your public URL.
               </li>
               <li>
-                <b>The <code>node:sqlite</code> module.</b> Only Node ≥ 22.5 has it; neither platform's
-                runtime does.
+                <b>Cloudflare Access — the built-in option.</b> Protect the dashboard + owner API
+                paths with an <Link to="https://one.dash.cloudflare.com/" target="_blank" rel="noreferrer">Access</Link>{' '}
+                application (email OTP, Google, GitHub… — free for up to 50 users). Set{' '}
+                <code>ACCESS_TEAM_DOMAIN</code> and <code>ACCESS_AUD</code> on the worker and it
+                verifies the signed assertion the edge injects, mapping your email to the owner
+                account — sign-in with <b>zero code</b> and no OAuth console setup.
               </li>
             </ul>
           </div>
-          <p>
-            That's why option 2 exists: the <code>cloudflare-deploy</code> branch is the port that
-            speaks Cloudflare's runtime natively (Worker + D1 + R2), and it's what the Cloudflare
-            button deploys. Cloudflare the free way also works with zero code changes — the quick
-            tunnel in section 1 <i>is</i> Cloudflare.
-          </p>
           <p className="muted">
-            Netlify could get the same treatment one day (database moved to a hosted SQLite such as
-            Turso's free tier, Express wrapped in a function, uploads already speak R2) — it just
-            hasn't been built. Until then, the options above are the free paths.
+            This port lives on the <code>cloudflare-deploy</code> branch — merge it (or deploy directly
+            from the branch) to use the button. Full details, including the Access setup, in{' '}
+            <code>worker/README.md</code>. Prefer managing it yourself?{' '}
+            <code>cd worker && npx wrangler deploy</code> does the same thing from your terminal.
           </p>
         </section>
 
         {/* -------------------------------------------------------------- */}
         <section id="firstboot">
-          <h2>4 · First boot — make it yours</h2>
+          <h2>3 · First boot — make it yours</h2>
           <ol className="tut-steps">
             <li>
               <b>Open your URL.</b> A fresh instance seeds itself with two demo stores — a full
@@ -360,7 +309,7 @@ PUBLIC_BASE_URL=https://your-tunnel-url TRUST_PROXY=true npm start`}</CodeBlock>
 
         {/* -------------------------------------------------------------- */}
         <section id="backups">
-          <h2>5 · Keep your data safe</h2>
+          <h2>4 · Keep your data safe</h2>
           <p>
             Everything that matters sits in one place: <code>storemap.db</code> plus the{' '}
             <code>uploads/</code> directory locally (<code>backend/data/</code>), the{' '}
@@ -404,11 +353,12 @@ docker compose cp storemap:/data ./backup      # Docker
               </p>
             </div>
             <div className="card tut-qa">
-              <b>The Render demo lost my map after a restart</b>
+              <b>I turned on Cloudflare Access but the dashboard still asks me to sign in</b>
               <p>
-                Expected: free instances have no persistent disk, so the demo resets. Use it for
-                show-and-tell; keep a real store's map on your own computer (section 1) or upgrade the
-                Render service to a plan with a disk.
+                Access authenticates you at Cloudflare's edge; the worker then maps your verified
+                email to an owner account. Set <code>ACCESS_TEAM_DOMAIN</code> (and ideally{' '}
+                <code>ACCESS_AUD</code>) on the worker so it trusts the assertion — see the table in
+                section 2.
               </p>
             </div>
             <div className="card tut-qa">

@@ -33,10 +33,39 @@ Everything has a working default; no setup is required to try it:
 | Setting | Default | Notes |
 |---|---|---|
 | `SELF_HOSTED` | `true` | local mode: product photos included, demo seeds on first boot |
-| `ENABLE_DEV_LOGIN` | `true` | passwordless demo login. **Turn off for public instances** (`npx wrangler deploy` after editing, or via the dashboard) and configure Google/Apple instead |
+| `ENABLE_DEV_LOGIN` | `true` | passwordless demo login. **Turn off for public instances** (`npx wrangler deploy` after editing, or via the dashboard) and use Google/Apple or Access instead |
 | `PUBLIC_BASE_URL` | *(unset → request origin)* | canonical origin for share links + printed QR codes; set it to your custom domain when you attach one |
 | `SESSION_SECRET` | *(unset → generated + stored in D1)* | auto-generated on first boot so sessions survive across isolates; override with `npx wrangler secret put SESSION_SECRET` for strict control |
 | `GOOGLE_*` / `APPLE_*` | *(unset)* | OAuth sign-in; redirect URIs are `{PUBLIC_BASE_URL}/api/auth/{google,apple}/callback` |
+| `ACCESS_TEAM_DOMAIN` | *(unset)* | Cloudflare Access sign-in — see below |
+| `ACCESS_AUD` | *(unset)* | the Access application's AUD tag (recommended) |
+
+## Sign-in with Cloudflare Access (Zero Trust) — the built-in option
+
+Access authenticates visitors at Cloudflare's edge before your worker runs —
+free for up to 50 users, with email OTP, Google, GitHub etc. as login methods.
+
+1. In the Zero Trust dashboard → **Access → Applications → Self-hosted**, add
+   an application for your `workers.dev` (or custom) domain covering the
+   owner paths: `/dashboard*` and `/api/stores*`, `/api/floors*`,
+   `/api/products*`, `/api/uploads*`, `/api/categories*`, `/api/locations*`,
+   `/api/keys*`. Leave `/s/*` and `/api/public*` outside Access so shoppers
+   stay login-free.
+2. Note the application's **AUD tag** and your team domain
+   (`yourteam.cloudflareaccess.com`).
+3. Set the two vars (dashboard → Settings → Variables, or edit
+   `wrangler.jsonc`): `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`.
+4. Add a policy allowing your email (or a group). Done — visiting
+   `/dashboard` bounces through the Access login, and the worker verifies the
+   signed `Cf-Access-Jwt-Assertion` the edge injects, maps the verified email
+   to an owner account, and the editor just works. No OAuth console, no
+   passwords.
+
+Under the hood (`src/access.ts`): the assertion is checked against your team's
+public certs (`https://<team>/cdn-cgi/access/certs`), with issuer and (when
+set) audience validation — a token from a different team or application is
+rejected. Visitors without an Access token on unprotected paths behave
+exactly as before (session cookie or demo login).
 
 ## Verify locally
 

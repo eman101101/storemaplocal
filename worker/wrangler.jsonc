@@ -62,7 +62,16 @@
     "APPLE_CLIENT_ID": "",
     "APPLE_TEAM_ID": "",
     "APPLE_KEY_ID": "",
-    "APPLE_PRIVATE_KEY": ""
+    "APPLE_PRIVATE_KEY": "",
+    // Optional Cloudflare Access (Zero Trust) sign-in — the built-in auth option.
+    // Protect the dashboard + owner API paths with an Access application (free
+    // for up to 50 users), then set:
+    //   ACCESS_TEAM_DOMAIN: "yourteam.cloudflareaccess.com"
+    //   ACCESS_AUD: the application's AUD tag (recommended — scopes the token)
+    // The worker verifies the Cf-Access-Jwt-Assertion the edge injects and maps
+    // the verified email to a user, so /dashboard works with no in-app login.
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": ""
   }
 
   // SESSION_SECRET is intentionally NOT set here: on first boot the worker

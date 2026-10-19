@@ -1,3 +1,4 @@
+import './env.js'; // loads backend/.env before anything reads process.env
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';

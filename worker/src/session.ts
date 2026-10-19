@@ -32,16 +32,22 @@ export function clearSession(c: Context): void {
 
 export async function currentUser(c: Context, env: Env): Promise<UserRow | null> {
   const token = parseCookies(c)[COOKIE];
-  if (!token) return null;
-  try {
-    const cfg = c.get('config');
-    const payload = await verifyHs256(token, cfg.sessionSecret);
-    if (!payload.sub || payload.exp * 1000 < Date.now()) return null;
-    const user = await first(env, 'SELECT id, email, name, avatar_url, provider FROM users WHERE id = ?', payload.sub);
-    return (user as UserRow) || null;
-  } catch {
-    return null;
+  if (token) {
+    try {
+      const cfg = c.get('config');
+      const payload = await verifyHs256(token, cfg.sessionSecret);
+      if (payload.sub && payload.exp * 1000 >= Date.now()) {
+        const user = await first(env, 'SELECT id, email, name, avatar_url, provider FROM users WHERE id = ?', payload.sub);
+        if (user) return user as UserRow;
+      }
+    } catch {
+      /* bad/Expired cookie — fall through to Cloudflare Access */
+    }
   }
+  // Cloudflare Access: the edge verified the visitor and injected a signed
+  // assertion; map its email to a user (no-op unless ACCESS_TEAM_DOMAIN is set).
+  const { userFromAccess } = await import('./access');
+  return userFromAccess(c, env);
 }
 
 /** Hono middleware: resolves c.get('user') for every /api request. */

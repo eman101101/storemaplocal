@@ -241,9 +241,9 @@ Run your own instance and every paid-tier feature — product photos — is
 included:
 
 1. Deploy this repo to any Node/Docker host (Railway reads `railway.json`;
-   Fly uses `fly.toml`; Render reads `render.yaml` — one-click button:
-   `https://render.com/deploy?repo=<your-github-repo-url>`; `docker compose up`
-   works locally).
+   Fly uses `fly.toml`; `docker compose up` works locally). Cloudflare Workers
+   are supported on the `cloudflare-deploy` branch (`worker/` — D1 + R2, one
+   click via the Deploy-to-Cloudflare button).
 2. Set `SELF_HOSTED=true` (plus `SESSION_SECRET`, `PUBLIC_BASE_URL`,
    `TRUST_PROXY=true` behind a proxy) and mount `/data`. `docker-compose.yml`
    already defaults `SELF_HOSTED=true` and `SEED_DEMO=true`.
