@@ -18,7 +18,7 @@ app.use('*', async (c, next) => {
 app.patch('/:floorId', async (c) => {
   const env = c.env as Env;
   const floor = await ownedFloor(c, env, c.req.param('floorId'));
-  if (!floor) return;
+  if (floor instanceof Response) return floor;
   const body = await c.req.json().catch(() => ({}));
   const updates: Record<string, unknown> = {};
   if (body?.name !== undefined) {
@@ -50,7 +50,7 @@ app.patch('/:floorId', async (c) => {
 app.delete('/:floorId', async (c) => {
   const env = c.env as Env;
   const floor = await ownedFloor(c, env, c.req.param('floorId'));
-  if (!floor) return;
+  if (floor instanceof Response) return floor;
   const cnt = await first(env, 'SELECT COUNT(*) c FROM floors WHERE store_id = ?', floor.store_id);
   if (Number(cnt?.c ?? 0) <= 1) return badRequest(c, 'A store must keep at least one floor');
   await run(env, 'DELETE FROM floors WHERE id = ?', floor.id);
@@ -65,7 +65,7 @@ app.delete('/:floorId', async (c) => {
 app.put('/:floorId/elements', async (c) => {
   const env = c.env as Env;
   const floor = await ownedFloor(c, env, c.req.param('floorId'));
-  if (!floor) return;
+  if (floor instanceof Response) return floor;
   const body = await c.req.json().catch(() => ({}));
   const list = Array.isArray(body?.elements) ? body.elements : null;
   if (!list) return badRequest(c, 'elements must be an array');
@@ -136,7 +136,7 @@ async function maybeSnapshot(env: Env, floorId: string, rows: { id: string; row:
 app.get('/:floorId/snapshots', async (c) => {
   const env = c.env as Env;
   const floor = await ownedFloor(c, env, c.req.param('floorId'));
-  if (!floor) return;
+  if (floor instanceof Response) return floor;
   const snapshots = await all(
     env,
     'SELECT id, element_count, created_at_ms FROM floor_snapshots WHERE floor_id = ? ORDER BY created_at_ms DESC',
@@ -148,7 +148,7 @@ app.get('/:floorId/snapshots', async (c) => {
 app.get('/:floorId/snapshots/:snapId', async (c) => {
   const env = c.env as Env;
   const floor = await ownedFloor(c, env, c.req.param('floorId'));
-  if (!floor) return;
+  if (floor instanceof Response) return floor;
   const row = await first(env, 'SELECT * FROM floor_snapshots WHERE id = ? AND floor_id = ?', c.req.param('snapId'), floor.id);
   if (!row) return notFound(c, 'Snapshot not found');
   return json(c, 200, {

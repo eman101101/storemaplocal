@@ -25,29 +25,23 @@ async function requireAuth(c: any, next: () => Promise<void>) {
   await next();
 }
 
-async function ownedCategory(c: any, env: Env, id: unknown) {
+async function ownedCategory(c: any, env: Env, id: unknown): Promise<Record<string, unknown> | Response> {
   const row = await first(
     env,
     'SELECT c.*, s.owner_id FROM categories c JOIN stores s ON s.id = c.store_id WHERE c.id = ?',
     String(id)
   );
-  if (!row || row.owner_id !== c.get('user').id) {
-    badRequest(c, 'Category not found');
-    return null;
-  }
+  if (!row || row.owner_id !== c.get('user').id) return badRequest(c, 'Category not found');
   return row;
 }
 
-async function ownedProduct(c: any, env: Env, id: unknown) {
+async function ownedProduct(c: any, env: Env, id: unknown): Promise<Record<string, unknown> | Response> {
   const row = await first(
     env,
     'SELECT p.*, s.owner_id FROM products p JOIN stores s ON s.id = p.store_id WHERE p.id = ?',
     String(id)
   );
-  if (!row || row.owner_id !== c.get('user').id) {
-    badRequest(c, 'Product not found');
-    return null;
-  }
+  if (!row || row.owner_id !== c.get('user').id) return badRequest(c, 'Product not found');
   return row;
 }
 
@@ -56,7 +50,7 @@ async function ownedProduct(c: any, env: Env, id: unknown) {
 app.post('/stores/:storeId/categories', requireAuth, async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('storeId'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   const body = await c.req.json().catch(() => ({}));
   const name = str(body?.name, { max: 60, allowEmpty: false });
   if (!name) return badRequest(c, 'Category name is required');
@@ -69,7 +63,7 @@ app.post('/stores/:storeId/categories', requireAuth, async (c) => {
 app.patch('/categories/:id', requireAuth, async (c) => {
   const env = c.env as Env;
   const cat = await ownedCategory(c, env, c.req.param('id'));
-  if (!cat) return;
+  if (cat instanceof Response) return cat;
   const body = await c.req.json().catch(() => ({}));
   const updates: Record<string, unknown> = {};
   if (body?.name !== undefined) {
@@ -92,7 +86,7 @@ app.patch('/categories/:id', requireAuth, async (c) => {
 app.delete('/categories/:id', requireAuth, async (c) => {
   const env = c.env as Env;
   const cat = await ownedCategory(c, env, c.req.param('id'));
-  if (!cat) return;
+  if (cat instanceof Response) return cat;
   await run(env, 'DELETE FROM categories WHERE id = ?', cat.id);
   await touchStore(env, cat.store_id as string);
   return json(c, 200, { ok: true });
@@ -103,14 +97,14 @@ app.delete('/categories/:id', requireAuth, async (c) => {
 app.post('/stores/:storeId/products', requireAuth, async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('storeId'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   const body = await c.req.json().catch(() => ({}));
   const name = str(body?.name, { max: 200, allowEmpty: false });
   if (!name) return badRequest(c, 'Product name is required');
   let categoryId: string | null = null;
   if (body?.category_id) {
     const cat = await ownedCategory(c, env, body.category_id);
-    if (!cat) return;
+    if (cat instanceof Response) return cat;
     categoryId = cat.id as string;
   }
   let price: number | null = null;
@@ -149,7 +143,7 @@ app.post('/products/:id/image', requireAuth, imageLimiter, async (c) => {
   const env = c.env as Env;
   const cfg = c.get('config');
   const product = await ownedProduct(c, env, c.req.param('id'));
-  if (!product) return;
+  if (product instanceof Response) return product;
   const store = await first(env, 'SELECT * FROM stores WHERE id = ?', product.store_id);
   if (!productImagesEnabled(cfg, store as { plan?: string })) {
     return json(c, 402, {
@@ -175,7 +169,7 @@ app.delete('/products/:id/image', requireAuth, async (c) => {
   const env = c.env as Env;
   const cfg = c.get('config');
   const product = await ownedProduct(c, env, c.req.param('id'));
-  if (!product) return;
+  if (product instanceof Response) return product;
   const store = await first(env, 'SELECT * FROM stores WHERE id = ?', product.store_id);
   if (!productImagesEnabled(cfg, store as { plan?: string }))
     return json(c, 402, { error: 'Product photos are a paid feature', upgrade: true });
@@ -187,7 +181,7 @@ app.delete('/products/:id/image', requireAuth, async (c) => {
 app.patch('/products/:id', requireAuth, async (c) => {
   const env = c.env as Env;
   const product = await ownedProduct(c, env, c.req.param('id'));
-  if (!product) return;
+  if (product instanceof Response) return product;
   const body = await c.req.json().catch(() => ({}));
   const updates: Record<string, unknown> = {};
   if (body?.name !== undefined) {
@@ -212,7 +206,7 @@ app.patch('/products/:id', requireAuth, async (c) => {
       updates.category_id = null;
     } else {
       const cat = await ownedCategory(c, env, body.category_id);
-      if (!cat) return;
+      if (cat instanceof Response) return cat;
       updates.category_id = cat.id;
     }
   }
@@ -232,7 +226,7 @@ app.patch('/products/:id', requireAuth, async (c) => {
 app.delete('/products/:id', requireAuth, async (c) => {
   const env = c.env as Env;
   const product = await ownedProduct(c, env, c.req.param('id'));
-  if (!product) return;
+  if (product instanceof Response) return product;
   await run(env, 'DELETE FROM products WHERE id = ?', product.id);
   await touchStore(env, product.store_id as string);
   return json(c, 200, { ok: true });
@@ -243,9 +237,10 @@ app.delete('/products/:id', requireAuth, async (c) => {
 app.post('/products/:id/locations', requireAuth, async (c) => {
   const env = c.env as Env;
   const product = await ownedProduct(c, env, c.req.param('id'));
-  if (!product) return;
+  if (product instanceof Response) return product;
   const body = await c.req.json().catch(() => ({}));
   const floor = body?.floor_id ? await ownedFloor(c, env, body.floor_id) : null;
+  if (floor instanceof Response) return floor;
   if (!floor) return badRequest(c, 'floor_id is required');
   const x = num(body?.x);
   const y = num(body?.y);

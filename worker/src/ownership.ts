@@ -10,27 +10,24 @@ interface StoreRow {
   [key: string]: unknown;
 }
 
-/** Returns the store row if owned by the user; otherwise sends the error and returns null. */
-export async function ownedStore(c: Context, env: Env, storeId: unknown): Promise<StoreRow | null> {
+/**
+ * Returns the store row if owned by the user; otherwise returns the error
+ * Response — handlers do `if (store instanceof Response) return store;`.
+ */
+export async function ownedStore(c: Context, env: Env, storeId: unknown): Promise<StoreRow | Response> {
   const store = await first(env, 'SELECT * FROM stores WHERE id = ? AND owner_id = ?', String(storeId), c.get('user').id);
-  if (!store) {
-    notFound(c, 'Store not found');
-    return null;
-  }
+  if (!store) return notFound(c, 'Store not found');
   return store as StoreRow;
 }
 
 /** Loads a floor and verifies its store is owned by the user. */
-export async function ownedFloor(c: Context, env: Env, floorId: unknown): Promise<StoreRow | null> {
+export async function ownedFloor(c: Context, env: Env, floorId: unknown): Promise<StoreRow | Response> {
   const floor = await first(
     env,
     'SELECT f.*, s.owner_id FROM floors f JOIN stores s ON s.id = f.store_id WHERE f.id = ?',
     String(floorId)
   );
-  if (!floor || floor.owner_id !== c.get('user').id) {
-    notFound(c, 'Floor not found');
-    return null;
-  }
+  if (!floor || floor.owner_id !== c.get('user').id) return notFound(c, 'Floor not found');
   return floor as StoreRow;
 }
 

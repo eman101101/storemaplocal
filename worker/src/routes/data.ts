@@ -19,7 +19,7 @@ csv.use('*', async (c, next) => {
 csv.post('/:storeId/integrations/csv', async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('storeId'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   const body = await c.req.json().catch(() => ({}));
   const rows = rowsFromCsv(String(body?.csv ?? ''));
   if (!rows.length) return badRequest(c, 'No rows found in CSV (need a header row with name/sku columns)');
@@ -34,7 +34,7 @@ csv.post('/:storeId/integrations/csv', async (c) => {
 csv.get('/:storeId/catalog.csv', async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('storeId'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   const rows = await all(
     env,
     `SELECT p.name, p.brand, p.sku, p.barcode, p.price, c.name AS category,

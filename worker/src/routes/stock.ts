@@ -17,7 +17,7 @@ app.use('*', async (c, next) => {
 app.get('/:storeId/stock', async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('storeId'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   return json(c, 200, {
     stock: await stockForStore(env, store.id),
     movements: await movementsForStore(env, store.id, 50),
@@ -27,7 +27,7 @@ app.get('/:storeId/stock', async (c) => {
 app.post('/:storeId/stock/adjust', async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('storeId'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   const body = await c.req.json().catch(() => ({}));
   const delta = Number(body?.delta);
   if (!Number.isFinite(delta)) return badRequest(c, 'delta must be a number');
@@ -39,7 +39,7 @@ app.post('/:storeId/stock/adjust', async (c) => {
 app.post('/:storeId/stock/set', async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('storeId'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   const body = await c.req.json().catch(() => ({}));
   const quantity = Number(body?.quantity);
   if (!Number.isFinite(quantity) || quantity < 0) return badRequest(c, 'quantity must be a non-negative number');
@@ -53,7 +53,7 @@ app.post('/:storeId/stock/set', async (c) => {
 app.get('/:storeId/keys', async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('storeId'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   const keys = await all(
     env,
     'SELECT id, name, key_prefix, created_at, last_used_at, revoked FROM store_api_keys WHERE store_id = ? ORDER BY created_at DESC',
@@ -65,7 +65,7 @@ app.get('/:storeId/keys', async (c) => {
 app.post('/:storeId/keys', async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('storeId'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   const body = await c.req.json().catch(() => ({}));
   const name = String(body?.name || 'API key').slice(0, 80);
   const cnt = await first(env, 'SELECT COUNT(*) c FROM store_api_keys WHERE store_id = ? AND revoked = 0', store.id);

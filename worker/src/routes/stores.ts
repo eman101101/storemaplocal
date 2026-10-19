@@ -76,7 +76,7 @@ app.post('/', async (c) => {
 app.get('/:id/full', async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('id'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   // ETag: editors reopen stores constantly — unchanged data answers 304.
   const counts = await first(
     env,
@@ -121,7 +121,7 @@ app.patch('/:id', async (c) => {
   const env = c.env as Env;
   const cfg = c.get('config');
   const store = await ownedStore(c, env, c.req.param('id'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   const body = await c.req.json().catch(() => ({}));
   const updates: Record<string, unknown> = {};
   for (const field of EDITABLE_FIELDS) {
@@ -152,7 +152,7 @@ app.patch('/:id', async (c) => {
 app.delete('/:id', async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('id'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   await run(env, 'DELETE FROM stores WHERE id = ?', store.id);
   return json(c, 200, { ok: true });
 });
@@ -162,7 +162,7 @@ app.delete('/:id', async (c) => {
 app.post('/:id/floors', async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('id'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   const body = await c.req.json().catch(() => ({}));
   const floorCount = await first(env, 'SELECT COUNT(*) c FROM floors WHERE store_id = ?', store.id);
   const name = str(body?.name, { max: 80 }) || `Floor ${Number(floorCount?.c ?? 0) + 1}`;
@@ -183,7 +183,7 @@ app.post('/:id/floors', async (c) => {
 app.post('/:id/duplicate', async (c) => {
   const env = c.env as Env;
   const store = await ownedStore(c, env, c.req.param('id'));
-  if (!store) return;
+  if (store instanceof Response) return store;
   const body = await c.req.json().catch(() => ({}));
   const name = str(body?.name, { max: 100, allowEmpty: false }) || `${store.name} (copy)`;
   const cloneId = newId();
