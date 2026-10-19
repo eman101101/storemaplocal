@@ -13,3 +13,4 @@ worker/.wrangler/
 
 # wrangler local state (repo root)
 .wrangler/
+.dev.vars

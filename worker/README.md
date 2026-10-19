@@ -67,6 +67,15 @@ set) audience validation — a token from a different team or application is
 rejected. Visitors without an Access token on unprotected paths behave
 exactly as before (session cookie or demo login).
 
+## Circuit breaker
+
+Every R2 read/write passes a daily budget counter in D1
+(`R2_DAILY_BUDGET` var, default 25,000 ops/day). Past the budget,
+`serveImage` returns a labeled placeholder SVG and uploads return 503 until
+the next UTC day — the map itself (D1-backed) keeps working. D1 write cost:
+one counter write per R2 op while under budget; once tripped, the isolate
+stops re-checking for the rest of the day.
+
 ## Verify locally
 
 ```bash

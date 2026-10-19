@@ -111,3 +111,19 @@ describe('slugify', () => {
     expect(slugify('')).toBe('store');
   });
 });
+
+describe('R2 circuit breaker', () => {
+  it('trips only past the budget', async () => {
+    const { budgetExceeded } = await import('../src/storage');
+    expect(budgetExceeded(24_999, 25_000)).toBe(false);
+    expect(budgetExceeded(25_000, 25_000)).toBe(false);
+    expect(budgetExceeded(25_001, 25_000)).toBe(true);
+  });
+
+  it('placeholder is an SVG response', async () => {
+    const { mediaPlaceholder } = await import('../src/storage');
+    const res = mediaPlaceholder();
+    expect(res.headers.get('Content-Type')).toBe('image/svg+xml');
+    expect(await res.text()).toContain('daily media budget reached');
+  });
+});

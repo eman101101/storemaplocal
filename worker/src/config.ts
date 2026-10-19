@@ -18,6 +18,7 @@ export interface Env {
   APPLE_PRIVATE_KEY?: string;
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUD?: string;
+  R2_DAILY_BUDGET?: string;
   MAX_UPLOAD_BYTES?: string;
 }
 

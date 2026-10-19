@@ -247,6 +247,7 @@ PUBLIC_BASE_URL=https://your-tunnel-url TRUST_PROXY=true npm start`}</CodeBlock>
                 <tr><td>You get</td><td><code>storemap.&lt;you&gt;.workers.dev</code> URL, D1 database, R2 bucket — all provisioned by the button</td></tr>
                 <tr><td>Persists?</td><td><b>yes</b> — D1 is a real database; the map survives restarts and redeploys (point-in-time recovery included)</td></tr>
                 <tr><td>QR codes</td><td>set <code>PUBLIC_BASE_URL</code> to a custom domain when you attach one (it defaults to the workers.dev origin)</td></tr>
+                <tr><td>Runaway protection</td><td>a daily circuit breaker caps R2 media ops (<code>R2_DAILY_BUDGET</code>, default 25,000/day ≈ 5× a heavy store) — past it, images show a "paused" placeholder until tomorrow while the map, search and editor keep working. No surprise R2 charges.</td></tr>
               </tbody>
             </table>
           </div>

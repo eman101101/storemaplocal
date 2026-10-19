@@ -15,7 +15,7 @@
   // The deploy button (and `wrangler deploy`) builds the SPA first so the
   // assets directory below exists.
   "build": {
-    "command": "cd worker && npm install && cd ../frontend && npm install && npm run build"
+    "command": "sh -c '[ -d worker ] || cd ..; npm install --prefix worker && npm install --prefix frontend && npm run build --prefix frontend'"
   },
 
   // The built SPA (frontend/dist) is served straight from Cloudflare's edge —
@@ -71,7 +71,11 @@
     // The worker verifies the Cf-Access-Jwt-Assertion the edge injects and maps
     // the verified email to a user, so /dashboard works with no in-app login.
     "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": ""
+    "ACCESS_AUD": "",
+    // Circuit breaker: max R2 operations per UTC day (reads + writes). Default
+    // ≈5× a heavy store day — past it, images/upload pause until tomorrow and
+    // the rest of the site keeps working. Set "0" to disable the breaker.
+    "R2_DAILY_BUDGET": "25000"
   }
 
   // SESSION_SECRET is intentionally NOT set here: on first boot the worker

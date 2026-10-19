@@ -89,6 +89,14 @@ match.
 
 ---
 
+## Runaway protection
+
+A daily circuit breaker caps R2 media operations (`R2_DAILY_BUDGET` in
+`wrangler.jsonc`, default 25,000/day — roughly 5× a heavy store). Past the
+budget, images and uploads pause with a friendly placeholder until the next
+day while the map, search and editor keep running — so a bot can never turn
+into an R2 overage charge. Set the budget to `"0"` to disable the breaker.
+
 ## QR codes
 
 Every store card on the home page exports a QR encoding

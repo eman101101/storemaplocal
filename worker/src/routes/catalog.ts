@@ -159,7 +159,14 @@ app.post('/products/:id/image', requireAuth, imageLimiter, async (c) => {
   if (buf.length > cfg.maxUploadBytes) return badRequest(c, 'Image exceeds 10 MB limit');
   if (!spec.magic(buf)) return badRequest(c, 'File content does not match its image type');
 
-  const { url } = await saveImage(env, buf, spec.ext);
+  let url: string;
+  try {
+    ({ url } = await saveImage(env, buf, spec.ext));
+  } catch (err) {
+    if ((err as Error).message === 'R2_DAILY_BUDGET_REACHED')
+      return json(c, 503, { error: 'Daily media budget reached — uploads pause until tomorrow.', retry: true });
+    throw err;
+  }
   await run(env, 'UPDATE products SET image_url = ? WHERE id = ?', url, product.id);
   await touchStore(env, product.store_id as string);
   return json(c, 200, { url, product: productJson((await first(env, PRODUCT_JOIN, product.id))!) });

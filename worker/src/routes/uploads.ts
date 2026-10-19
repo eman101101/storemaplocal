@@ -31,8 +31,14 @@ app.post('/', requireAuth, limiter, async (c) => {
   if (buf.length > cfg.maxUploadBytes) return badRequest(c, 'Image exceeds 10 MB limit');
   if (!spec.magic(buf)) return badRequest(c, 'File content does not match its image type');
 
-  const { url } = await saveImage(env, buf, spec.ext);
-  return json(c, 201, { url });
+  try {
+    const { url } = await saveImage(env, buf, spec.ext);
+    return json(c, 201, { url });
+  } catch (err) {
+    if ((err as Error).message === 'R2_DAILY_BUDGET_REACHED')
+      return json(c, 503, { error: 'Daily media budget reached — uploads pause until tomorrow.', retry: true });
+    throw err;
+  }
 });
 
 export default app;

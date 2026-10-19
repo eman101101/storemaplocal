@@ -164,6 +164,15 @@ const MIGRATIONS: { name: string; sql: string }[] = [
       );
     `,
   },
+  {
+    name: '007-r2-budget',
+    sql: `
+      CREATE TABLE IF NOT EXISTS r2_budget (
+        day TEXT PRIMARY KEY,
+        used INTEGER NOT NULL DEFAULT 0
+      );
+    `,
+  },
 ];
 
 /** Apply pending migrations; memoised per isolate. */
