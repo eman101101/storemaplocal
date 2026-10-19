@@ -102,6 +102,9 @@ export default function Landing() {
             <Link to="/s/freshmart-downtown" className="btn">
               ▶ See the live demo
             </Link>
+            <Link to="/self-host" className="btn">
+              🖥 Host your own
+            </Link>
           </div>
         </div>
         <div className="hero-visual">
@@ -162,7 +165,9 @@ export default function Landing() {
         )}
       </section>
 
-      <footer className="footer">StoreMap — in-store navigation for humans.</footer>
+      <footer className="footer">
+        StoreMap — in-store navigation for humans. · <Link to="/self-host">Self-host your own</Link>
+      </footer>
     </main>
   );
 }

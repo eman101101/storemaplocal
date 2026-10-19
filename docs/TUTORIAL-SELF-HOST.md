@@ -5,6 +5,49 @@ self-hosting. In **local mode** (`SELF_HOSTED=true`) every paid-tier feature
 (product photos) is included, and the first boot seeds demo maps so your
 instance is usable the moment it goes live.
 
+A version of this tutorial rendered inside the app lives at **`/self-host`**
+(covering running it on your own machine first, then the online options below).
+
+## Warm-up: run it on your machine first
+
+```bash
+# Node ≥ 22.5 — build the UI once, then start the server
+cd frontend && npm install && npm run build
+cd ../backend && npm install
+SELF_HOSTED=true npm start        # → http://localhost:8787
+```
+
+Or with Docker (compose defaults `SELF_HOSTED=true` and `SEED_DEMO=true`;
+generate a `SESSION_SECRET` and, on a private machine,
+`ENABLE_DEV_LOGIN=true` for the one-click login):
+
+```bash
+printf 'SESSION_SECRET=%s\nENABLE_DEV_LOGIN=true\n' \
+  "$(node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))")" > .env
+docker compose up -d --build      # → http://localhost:8787
+```
+
+## Free public URL from your own machine (tunnel)
+
+No server budget? Give your machine a public https address with a tunnel and
+keep the data local:
+
+```bash
+# zero signup, disposable address (Cloudflare quick tunnel)
+cloudflared tunnel --url http://localhost:8787     # → https://….trycloudflare.com
+
+# or a stable free address — the one to print QR codes for
+ngrok http --domain=your-name.ngrok-free.app 8787  # static domain on the free plan
+```
+
+Then restart the backend with the public origin so share links and QR codes
+match: `PUBLIC_BASE_URL=https://<tunnel-url> TRUST_PROXY=true npm start`.
+Quick tunnels change address on every run; a named Cloudflare tunnel (needs a
+domain, still free) or Tailscale Funnel gives a permanent one. The instance is
+public now — configure Google/Apple OAuth and leave dev login off.
+
+---
+
 Pick one platform below. All of them: set a few env vars, mount one volume at
 `/data`, done.
 
@@ -17,7 +60,7 @@ Pick one platform below. All of them: set a few env vars, mount one volume at
 | Env `NODE_ENV` | `production` |
 | Env `SESSION_SECRET` | long random string (see below) |
 | Env `PUBLIC_BASE_URL` | your public HTTPS url, e.g. `https://map.example.com` |
-| Env `SELF_HOSTED` | `true` — enables local mode |
+| Env `SELF_HOSTED` | `true` — enables local mode (default in `docker-compose.yml`) |
 | Env `TRUST_PROXY` | `true` when the platform terminates TLS (all three below do) |
 | Volume | mount at **`/data`** (SQLite + uploaded images live here) |
 | Port | the app reads `PORT` (defaults to 8787) |
@@ -30,7 +73,9 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 
 First boot with an empty database automatically seeds the demo maps
 (set `SEED_DEMO=false` to skip). Sign in with the **Open the demo maps**
-button on `/login` and start editing.
+button on `/login` and start editing — on a public deployment that button
+requires `ENABLE_DEV_LOGIN=true` (private instances only) or configure
+Google/Apple OAuth instead.
 
 > Rule of thumb: never scale past **one replica** — SQLite is single-writer
 > and the volume is per-machine.
@@ -72,14 +117,24 @@ fly deploy
 Cost: ≈ $6/mo. Optional: Cloudflare R2 for continuous SQLite backups
 (`R2_*` secrets) — see `docs/DEPLOY.md`.
 
-## Option C — Render
+## Option C — Render (one-click button, free demo)
 
-1. [render.com](https://render.com) → **New → Web Service** → connect the repo
-   (Docker runtime is detected).
-2. **Advanced → Add Persistent Disk**: mount path `/data` (Starter plan+).
-3. Environment → add the table above. Auto-deploy on push is on by default.
+The repo ships a `render.yaml` blueprint, so Render's deploy button works out
+of the box (Docker runtime, generated `SESSION_SECRET`, `SELF_HOSTED=true`,
+demo seeded). Get your button with
+`https://render.com/deploy?repo=<your-github-repo-url>` — the in-app tutorial
+at `/self-host` builds it for you from a pasted repo URL. **Render's free plan
+has no persistent disk: the map resets on every restart/redeploy** — the
+blueprint deploys on free as a live demo; switch the service to Starter
+(~$7/mo) and add the `/data` disk for a real store (the blueprint's comments
+show how). After the first deploy, add `PUBLIC_BASE_URL` = your
+`onrender.com` URL under Environment.
 
-Cost: ≈ $7/mo + ~$0.25/GB disk.
+1. [render.com](https://render.com) → **New → Blueprint** → connect the repo.
+2. Blueprint applies: free plan, env vars (add `PUBLIC_BASE_URL` after the
+   URL exists). Auto-deploy on push is on by default.
+
+Cost: free (demo, ephemeral); Starter ≈ $7/mo + ~$0.25/GB disk.
 
 ## Option D — Your own VPS + Cloudflare (full control)
 

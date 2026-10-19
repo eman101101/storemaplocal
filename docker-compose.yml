@@ -16,6 +16,8 @@ services:
       APPLE_KEY_ID: ${APPLE_KEY_ID}
       APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY}
       ENABLE_DEV_LOGIN: ${ENABLE_DEV_LOGIN:-false}
+      SELF_HOSTED: ${SELF_HOSTED:-true}
+      SEED_DEMO: ${SEED_DEMO:-true}
     volumes:
       - storemap-data:/data
     restart: unless-stopped

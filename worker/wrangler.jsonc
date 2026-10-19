@@ -1,0 +1,72 @@
+/**
+ * StoreMap on Cloudflare Workers — one-click deploy configuration.
+ * The "Deploy to Cloudflare" button reads this file and provisions the D1
+ * database and R2 bucket automatically (no ids needed before first deploy).
+ *
+ * Docs: https://developers.cloudflare.com/workers/platform/deploy-buttons
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "storemap",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // The deploy button (and `wrangler deploy`) builds the SPA first so the
+  // assets directory below exists.
+  "build": {
+    "command": "cd ../frontend && npm install && npm run build"
+  },
+
+  // The built SPA (frontend/dist) is served straight from Cloudflare's edge —
+  // only /api/*, /uploads/*, /s/* and SEO paths invoke the Worker.
+  "assets": {
+    "directory": "../frontend/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/uploads/*", "/s/*", "/sitemap.xml", "/robots.txt"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "storemap",
+      // placeholder — the deploy button replaces it with the real id on first deploy
+      "database_id": "placeholder"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "storemap-media"
+    }
+  ],
+
+  "vars": {
+    // Local mode: paid-tier features (product photos) included + demo maps seed
+    // themselves on first boot.
+    "SELF_HOSTED": "true",
+    // Passwordless "Open the demo maps" login — perfect for the one-click demo
+    // on a private/obscure URL. Turn OFF (or configure Google/Apple OAuth
+    // below) before sharing the instance with the world.
+    "ENABLE_DEV_LOGIN": "true",
+    // Canonical public origin used in share links and printed QR codes.
+    // Leave "" to auto-use whatever origin the request came in on
+    // (your-app.workers.dev or your custom domain).
+    "PUBLIC_BASE_URL": "",
+    // Optional Sign in with Google / Apple — set as secrets after deploy:
+    //   npx wrangler secret put GOOGLE_CLIENT_ID …
+    "GOOGLE_CLIENT_ID": "",
+    "GOOGLE_CLIENT_SECRET": "",
+    "APPLE_CLIENT_ID": "",
+    "APPLE_TEAM_ID": "",
+    "APPLE_KEY_ID": "",
+    "APPLE_PRIVATE_KEY": ""
+  }
+
+  // SESSION_SECRET is intentionally NOT set here: on first boot the worker
+  // generates one and stores it in D1 (app_settings), so sessions survive
+  // across isolates without any setup. Override with a secret for strict control:
+  //   npx wrangler secret put SESSION_SECRET
+}

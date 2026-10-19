@@ -97,14 +97,18 @@ with **Google** or **Apple**.
 Requirements: **Node.js ≥ 22.5** (uses the built-in `node:sqlite`).
 
 ```bash
-# 1. backend
-cd backend
+# 1. build the SPA once — the backend serves it from frontend/dist (not committed)
+cd frontend
 npm install
-npm run dev            # serves API + frontend on http://localhost:8787
+npm run build
 
-# 2. frontend (only needed while developing the UI)
-cd ../frontend
+# 2. backend
+cd ../backend
 npm install
+npm run dev            # API + built frontend on http://localhost:8787
+
+# frontend dev server, only while working on the UI
+cd ../frontend
 npm run dev            # Vite dev server on http://localhost:5173, proxies to 8787
 ```
 
@@ -237,15 +241,22 @@ Run your own instance and every paid-tier feature — product photos — is
 included:
 
 1. Deploy this repo to any Node/Docker host (Railway reads `railway.json`;
-   Fly uses `fly.toml`; `docker compose up` works locally).
+   Fly uses `fly.toml`; Render reads `render.yaml` — one-click button:
+   `https://render.com/deploy?repo=<your-github-repo-url>`; `docker compose up`
+   works locally).
 2. Set `SELF_HOSTED=true` (plus `SESSION_SECRET`, `PUBLIC_BASE_URL`,
-   `TRUST_PROXY=true` behind a proxy) and mount `/data`.
+   `TRUST_PROXY=true` behind a proxy) and mount `/data`. `docker-compose.yml`
+   already defaults `SELF_HOSTED=true` and `SEED_DEMO=true`.
 3. First boot with an empty database seeds the demo maps automatically
-   (`SEED_DEMO=false` to skip). Sign in via **Open the demo maps** and edit.
+   (`SEED_DEMO=false` to skip). Sign in via **Open the demo maps** and edit —
+   on a private instance that button needs `ENABLE_DEV_LOGIN=true` (production
+   keeps passwordless logins off by default); public instances should
+   configure Google/Apple OAuth instead.
 
-Step-by-step tutorials for Railway, Fly, Render and a VPS + Cloudflare
-tunnel: [docs/TUTORIAL-SELF-HOST.md](docs/TUTORIAL-SELF-HOST.md).
-Railway specifics: [docs/HOSTING-RAILWAY.md](docs/HOSTING-RAILWAY.md).
+A tutorial rendered inside the app itself lives at **`/self-host`**. For the
+platform-by-platform commands, see
+[docs/TUTORIAL-SELF-HOST.md](docs/TUTORIAL-SELF-HOST.md); Railway specifics:
+[docs/HOSTING-RAILWAY.md](docs/HOSTING-RAILWAY.md).
 
 ### Health check
 

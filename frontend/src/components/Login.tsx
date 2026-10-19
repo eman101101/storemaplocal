@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../App';
 import { APPLE_LOGO, GOOGLE_G } from './ui';
@@ -103,7 +103,8 @@ export default function Login() {
         {!providers.google && !providers.apple && (
           <p className="muted" style={{ fontSize: 12.5 }}>
             Google &amp; Apple sign-in activate automatically once OAuth credentials are configured
-            on the server (see README.md).
+            on the server. Running your own instance? Follow the <Link to="/self-host">self-host
+            guide</Link> — local mode includes a one-click demo login.
           </p>
         )}
 

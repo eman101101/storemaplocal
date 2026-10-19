@@ -723,3 +723,87 @@ html[data-mode='dark'] .store-status.live { color: #6cc180; }
   gap: 6px;
   padding-right: 2px;
 }
+
+/* ---------- Self-host tutorial (/self-host) ---------- */
+.tut { max-width: 800px; margin: 0 auto; }
+.tut-head { padding: 30px 0 6px; }
+.tut-head h1 { font-size: clamp(28px, 5vw, 40px); margin: 0 0 12px; letter-spacing: -0.03em; }
+.tut-head h1 em { color: var(--green); font-style: normal; }
+.tut-head p { color: var(--ink-soft); font-size: 16px; margin: 0; }
+
+.tut-paths { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 22px 0 8px; }
+.tut-path { display: flex; flex-direction: column; gap: 5px; padding: 16px; color: var(--ink); }
+.tut-path:hover { text-decoration: none; border-color: var(--green); transform: translateY(-2px); transition: transform 0.15s ease; }
+.tut-path b { font-size: 15px; }
+.tut-path span:last-child { color: var(--ink-soft); font-size: 13px; }
+.tut-path .num {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--green-soft); color: var(--green-dark);
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;
+}
+
+.tut section { margin-top: 34px; scroll-margin-top: 64px; }
+.tut section h2 { font-size: 21px; margin: 0 0 12px; letter-spacing: -0.02em; }
+.tut section h3 { font-size: 16px; margin: 22px 0 8px; }
+.tut section p { color: var(--ink-soft); margin: 10px 0; }
+.tut section p b, .tut-callout b, .tut-qa b { color: var(--ink); }
+.tut code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em;
+  background: var(--chip); border-radius: 6px; padding: 1.5px 6px; color: var(--ink);
+}
+
+.tut-code { position: relative; margin: 12px 0; }
+.tut-code pre {
+  margin: 0; padding: 14px 16px; overflow-x: auto;
+  background: var(--chip); border: 1px solid var(--line); border-radius: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.55;
+  color: var(--ink);
+}
+.tut-copy {
+  position: absolute; top: 8px; right: 8px;
+  border: 1px solid var(--line); background: var(--surface-solid); color: var(--ink-soft);
+  border-radius: 8px; padding: 3px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.tut-copy:hover { background: var(--hover); color: var(--ink); }
+.tut-gen { position: static; width: 100%; }
+
+.tut-callout {
+  border: 1px solid var(--line); border-left: 3px solid var(--green);
+  background: var(--surface); border-radius: 10px; padding: 11px 14px;
+  margin: 14px 0; font-size: 13.5px; color: var(--ink-soft);
+}
+.tut-callout ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+.tut-callout.warn { border-left-color: var(--amber); }
+
+.tut-choose-title { margin: 24px 0 0; font-size: 15px; color: var(--ink-soft); }
+.tut-choose td:nth-child(2), .tut-choose th:nth-child(2) { white-space: nowrap; }
+.tut-table-wrap { overflow-x: auto; margin: 12px 0; }
+.tut-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.tut-table th {
+  text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--ink-soft); padding: 10px 12px 6px; border-bottom: 1px solid var(--line);
+}
+.tut-table td { padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tut-table tr:last-child td { border-bottom: none; }
+.tut-table td:first-child { white-space: nowrap; font-weight: 600; }
+
+.tut-deploy { margin: 14px 0; }
+.tut-deploy .field { margin-bottom: 8px; }
+.tut-deploy-btns { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.tut-deploy-btn { font-size: 15px; padding: 10px 18px; }
+
+.tut-steps { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; counter-reset: tut; }
+.tut-steps li { counter-increment: tut; position: relative; padding-left: 36px; color: var(--ink-soft); font-size: 14px; }
+.tut-steps li::before {
+  content: counter(tut); position: absolute; left: 0; top: 1px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--green-soft); color: var(--green-dark); font-weight: 800; font-size: 12.5px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.tut-steps b { color: var(--ink); }
+
+.tut-faq { display: flex; flex-direction: column; gap: 10px; }
+.tut-qa { padding: 14px 16px; }
+.tut-qa b { display: block; font-size: 14px; margin-bottom: 4px; }
+.tut-qa p { margin: 0; color: var(--ink-soft); font-size: 13.5px; }
+
+.tut-foot { margin: 36px 0 10px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 13.5px; }

@@ -5,6 +5,7 @@ import type { AuthInfo } from './types';
 import { ThemeProvider } from './theme';
 import Landing from './components/Landing';
 import Login from './components/Login';
+import SelfHost from './components/SelfHost';
 import Dashboard from './components/Dashboard';
 import EditorPage from './components/EditorPage';
 import StockPage from './components/StockPage';
@@ -47,6 +48,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/self-host" element={<SelfHost />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/stores/:storeId" element={<EditorPage />} />
             <Route path="/dashboard/stores/:storeId/stock" element={<StockPage />} />

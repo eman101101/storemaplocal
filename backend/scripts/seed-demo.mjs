@@ -9,26 +9,51 @@
  *   node scripts/seed-demo.mjs            # idempotent — skips if already seeded
  *   node scripts/seed-demo.mjs --reset    # wipe the demo store and rebuild
  */
-import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
+// The same database handle the server uses (honours DATA_DIR) and the schema
+// migrations, so the script works standalone on a machine that never booted it.
+import { db, migrate } from '../src/db.js';
 
-const dbPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'storemap.db');
-const db = new DatabaseSync(dbPath);
-db.exec('PRAGMA journal_mode = WAL;');
+migrate();
 
 const reset = process.argv.includes('--reset');
 const tiny = process.argv.includes('--tiny') || process.argv.includes('--profile=tiny');
 const W = 54; // floor size, meters
 const H = 36;
 
-const store = db.prepare("SELECT id FROM stores WHERE slug = 'freshmart-downtown'").get();
+// The demo owner account — "Open the demo maps" signs into it (config.demoLoginEmail),
+// so every seeded demo store must belong to it.
+let owner = db.prepare("SELECT id FROM users WHERE email = 'annex@storemap.demo'").get();
+if (!owner) {
+  const uid = randomUUID();
+  db.prepare("INSERT INTO users (id, email, name, provider, provider_sub) VALUES (?, ?, ?, 'dev', ?)").run(
+    uid, 'annex@storemap.demo', 'Demo Map Owner', 'demo-owner'
+  );
+  owner = { id: uid };
+}
+
+let store = db.prepare("SELECT id FROM stores WHERE slug = 'freshmart-downtown'").get();
 if (!store) {
-  console.error('Demo store "freshmart-downtown" not found — start the backend once to create it.');
-  process.exit(1);
+  const sid = randomUUID();
+  db.prepare(
+    `INSERT INTO stores (id, owner_id, name, slug, address, description, hours, is_public)
+     VALUES (?, ?, 'Freshmart Downtown', 'freshmart-downtown', '400 Main St',
+             'The full-size supermarket demo: perimeter wall shelving, double-sided gondola aisles, checkout by the entrance.',
+             '8am–10pm daily', 1)`
+  ).run(sid, owner.id);
+  db.prepare('INSERT INTO floors (id, store_id, name, level, width_m, height_m) VALUES (?, ?, ?, ?, ?, ?)').run(
+    randomUUID(), sid, 'Main floor', 1, W, H
+  );
+  store = { id: sid };
+  console.log('Created Freshmart Downtown (freshmart-downtown).');
 }
 let floor = db.prepare('SELECT id, width_m, height_m FROM floors WHERE store_id = ? ORDER BY level LIMIT 1').get(store.id);
+if (!floor) {
+  db.prepare('INSERT INTO floors (id, store_id, name, level, width_m, height_m) VALUES (?, ?, ?, ?, ?, ?)').run(
+    randomUUID(), store.id, 'Main floor', 1, W, H
+  );
+  floor = db.prepare('SELECT id, width_m, height_m FROM floors WHERE store_id = ? ORDER BY level LIMIT 1').get(store.id);
+}
 const shelfCount = db.prepare("SELECT COUNT(*) AS n FROM map_elements WHERE floor_id = ? AND type = 'shelf'").get(floor.id).n;
 
 if (reset) {

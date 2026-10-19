@@ -7,3 +7,6 @@ dist/
 # runtime data (database + uploads)
 backend/data/
 data/
+
+# Cloudflare worker local state
+worker/.wrangler/
