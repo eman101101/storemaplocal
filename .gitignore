@@ -10,3 +10,6 @@ data/
 
 # Cloudflare worker local state
 worker/.wrangler/
+
+# wrangler local state (repo root)
+.wrangler/

@@ -10,9 +10,9 @@ deployment target living in `worker/`.
 
 ## One-click deploy
 
-Merge/push this branch, then use the **Deploy to Cloudflare** button on the
+This repo is the Cloudflare-ready build. Use the **Deploy to Cloudflare** button on the
 `/self-host` page (or open
-`https://deploy.workers.cloudflare.com/?url=<your-repo-url>`).
+`https://deploy.workers.cloudflare.com/?url=https://github.com/eman101101/storemaplocal`).
 
 The button reads [`wrangler.jsonc`](wrangler.jsonc) and provisions everything:
 
@@ -70,10 +70,10 @@ exactly as before (session cookie or demo login).
 ## Verify locally
 
 ```bash
-cd worker
-npm install
-npm run typecheck && npm test   # unit tests (crypto, validation, CSV, slugs)
-npm run dev                     # wrangler dev — local D1 + R2 simulation
+# from the repo root (the wrangler.jsonc lives there)
+npm install --prefix worker && npm install --prefix frontend
+npm run typecheck --prefix worker && npm test --prefix worker   # unit tests (crypto, validation, CSV, slugs)
+npx wrangler dev               # local D1 + R2 simulation
 # first request migrates + seeds: open http://localhost:8787
 ```
 

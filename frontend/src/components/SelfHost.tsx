@@ -60,17 +60,17 @@ function SecretRow() {
 /* One-click deploy button -------------------------------------------------- */
 
 function CloudflareButton() {
-  const [repo, setRepo] = useState('https://github.com/you/storemap');
+  const [repo, setRepo] = useState('https://github.com/eman101101/storemaplocal');
   const repoTrim = repo.trim().replace(/\.git$/, '');
   const repoOk = /^https:\/\/\S+/.test(repoTrim);
   return (
     <div className="tut-deploy">
       <label className="field">
-        <span>Paste the GitHub URL of <b>your copy</b> of this repo (with the <code>cloudflare-deploy</code> branch merged)</span>
+        <span>Paste the GitHub URL of <b>your fork/copy</b> of this repo (defaults to this one)</span>
         <input
           className="input"
           type="url"
-          placeholder="https://github.com/you/storemap"
+          placeholder="https://github.com/eman101101/storemaplocal"
           value={repo}
           onChange={(e) => setRepo(e.target.value)}
         />
@@ -141,7 +141,7 @@ export default function SelfHost() {
             SQLite database built into Node, so there is nothing else to install).
           </p>
           <CodeBlock>{`# 1. get the code (clone this repo, or download and unzip it)
-git clone https://github.com/you/storemap.git
+git clone https://github.com/eman101101/storemaplocal.git
 cd storemap
 
 # 2. build the web UI once — the backend serves it as static files
@@ -233,7 +233,7 @@ PUBLIC_BASE_URL=https://your-tunnel-url TRUST_PROXY=true npm start`}</CodeBlock>
         <section id="cf">
           <h2>2 · Cloudflare Workers — always on, free tier, one click</h2>
           <p>
-            The <code>cloudflare-deploy</code> branch adds a full Cloudflare port: a Worker (Hono) with{' '}
+            This deployment adds a full Cloudflare port: a Worker (Hono) with{' '}
             <b>D1</b> as the database, <b>R2</b> for uploaded images, and the web app served from the
             edge — one deployment, always online, on Cloudflare's free tier. The deploy button reads
             the repo's <code>wrangler.jsonc</code> and provisions D1 + R2 automatically; the demo maps
@@ -274,10 +274,11 @@ PUBLIC_BASE_URL=https://your-tunnel-url TRUST_PROXY=true npm start`}</CodeBlock>
             </ul>
           </div>
           <p className="muted">
-            This port lives on the <code>cloudflare-deploy</code> branch — merge it (or deploy directly
-            from the branch) to use the button. Full details, including the Access setup, in{' '}
+            This repo (<code>storemaplocal</code>) <b>is</b> the Cloudflare build — the button above
+            deploys it directly. Full details, including the Access setup, in{' '}
             <code>worker/README.md</code>. Prefer managing it yourself?{' '}
-            <code>cd worker && npx wrangler deploy</code> does the same thing from your terminal.
+            <code>npx wrangler deploy</code> from the repo root does the same thing from your
+            terminal.
           </p>
         </section>
 

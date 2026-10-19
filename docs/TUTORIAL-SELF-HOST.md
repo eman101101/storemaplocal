@@ -117,9 +117,9 @@ fly deploy
 Cost: ≈ $6/mo. Optional: Cloudflare R2 for continuous SQLite backups
 (`R2_*` secrets) — see `docs/DEPLOY.md`.
 
-## Option C — Cloudflare Workers (the `cloudflare-deploy` branch)
+## Option C — Cloudflare Workers (the `storemaplocal` repo)
 
-A full Workers port lives on the `cloudflare-deploy` branch (`worker/`):
+A full Workers port lives in the [`storemaplocal` repo](https://github.com/eman101101/storemaplocal) (`worker/`):
 Hono + **D1** database + **R2** media + the SPA from the edge. Free tier,
 persistent, one-click via the Deploy-to-Cloudflare button, and Cloudflare
 Access (free ≤50 users) can serve as the sign-in. See `worker/README.md`

@@ -5,8 +5,8 @@
   "description": "StoreMap on Cloudflare Workers — D1 (SQLite) + R2 media + static SPA assets",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --config ../wrangler.jsonc",
+    "deploy": "wrangler deploy --config ../wrangler.jsonc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
