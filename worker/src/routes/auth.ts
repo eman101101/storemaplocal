@@ -228,6 +228,7 @@ app.get('/me', async (c) => {
   return json(c, 200, {
     user: u ? { id: u.id, email: u.email, name: u.name, avatar_url: u.avatar_url, provider: u.provider } : null,
     providers: providersConfigured(c.get('config')),
+    selfHosted: c.get('config').selfHosted,
   });
 });
 

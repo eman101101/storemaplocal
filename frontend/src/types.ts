@@ -11,6 +11,7 @@ export interface User {
 export interface AuthInfo {
   user: User | null;
   providers: { google: boolean; apple: boolean; dev: boolean };
+  selfHosted?: boolean;
 }
 
 export interface Store {

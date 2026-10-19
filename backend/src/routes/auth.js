@@ -119,6 +119,7 @@ router.get('/me', (req, res) => {
   sendJson(res, 200, {
     user: u ? { id: u.id, email: u.email, name: u.name, avatar_url: u.avatar_url, provider: u.provider } : null,
     providers: providersConfigured(),
+    selfHosted: config.selfHosted,
   });
 });
 

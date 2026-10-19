@@ -6,6 +6,7 @@ import { ThemeProvider } from './theme';
 import Landing from './components/Landing';
 import Login from './components/Login';
 import SelfHost from './components/SelfHost';
+import LocalHome from './components/LocalHome';
 import Dashboard from './components/Dashboard';
 import EditorPage from './components/EditorPage';
 import StockPage from './components/StockPage';
@@ -46,7 +47,7 @@ export default function App() {
         <div className="app-shell">
           {!isViewer && <TopNav />}
           <Routes>
-            <Route path="/" element={<Landing />} />
+            <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/self-host" element={<SelfHost />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -61,8 +62,18 @@ export default function App() {
   );
 }
 
+/**
+ * Local/self-hosted instances (SELF_HOSTED=true — the storemaplocal layout)
+ * open on the setup-first home; the hosted build keeps the marketing landing.
+ */
+function Home() {
+  const { selfHosted, loading } = useAuth();
+  if (loading) return <Landing />;
+  return selfHosted ? <LocalHome /> : <Landing />;
+}
+
 function TopNav() {
-  const { user } = useAuth();
+  const { user, selfHosted } = useAuth();
   const navigate = useNavigate();
   const logout = async () => {
     await api.logout();
@@ -72,6 +83,7 @@ function TopNav() {
     <nav className="topnav">
       <Link to="/" className="brand">
         <span className="brand-logo">▦</span> StoreMap
+        {selfHosted && <span className="brand-badge">Local</span>}
       </Link>
       <div className="spacer" />
       <ThemeSettings />
