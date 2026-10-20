@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import type { AppEnv, Env } from '../config';
 import { all, first, run } from '../db';
 import { json, badRequest } from '../http';
+import { ftsExpression } from '../search';
 
 const app = new Hono<AppEnv>();
 
@@ -79,6 +80,14 @@ app.get('/stores/:slug', async (c) => {
 });
 
 const SEARCH_FIELDS = ['p.name', 'p.brand', 'p.sku', 'p.barcode'];
+const SEARCH_SELECT = `SELECT p.id, p.name, p.brand, p.sku, p.price, p.image_url,
+        c.name AS category_name, c.color AS category_color,
+        l.floor_id, l.x, l.y,
+        f.name AS floor_name
+ FROM products p
+ LEFT JOIN categories c ON c.id = p.category_id
+ LEFT JOIN product_locations l ON l.product_id = p.id
+ LEFT JOIN floors f ON f.id = l.floor_id`;
 
 app.get('/stores/:slug/search', async (c) => {
   const env = c.env as Env;
@@ -87,23 +96,31 @@ app.get('/stores/:slug/search', async (c) => {
   const store = await first(env, 'SELECT id FROM stores WHERE slug = ? AND is_public = 1', slug);
   if (!store) return json(c, 404, { error: 'Store not found' });
   if (!q) return json(c, 200, { results: [] });
-  const like = `%${q}%`;
-  const where = SEARCH_FIELDS.map((f) => `${f} LIKE ?`).join(' OR ');
-  const categoryLike = `%${q}%`;
-  const results = await all(
-    env,
-    `SELECT p.id, p.name, p.brand, p.sku, p.price, p.image_url,
-            c.name AS category_name, c.color AS category_color,
-            l.floor_id, l.x, l.y,
-            f.name AS floor_name
-     FROM products p
-     LEFT JOIN categories c ON c.id = p.category_id
-     LEFT JOIN product_locations l ON l.product_id = p.id
-     LEFT JOIN floors f ON f.id = l.floor_id
-     WHERE p.store_id = ? AND (${where} OR c.name LIKE ?)
-     ORDER BY p.name COLLATE NOCASE LIMIT 40`,
-    store.id, like, like, like, like, categoryLike
-  );
+
+  // FTS5 path: inverted-index prefix match — a keystroke is an index lookup,
+  // not a catalog scan (see backend migration 006 / lib/search.js).
+  const match = ftsExpression(q);
+  let results;
+  if (match) {
+    results = await all(
+      env,
+      `${SEARCH_SELECT}
+       JOIN products_fts fts ON fts.rowid = p.rowid
+       WHERE products_fts MATCH ? AND p.store_id = ?
+       ORDER BY p.name COLLATE NOCASE LIMIT 40`,
+      match, store.id
+    );
+  } else {
+    const like = `%${q}%`;
+    const where = SEARCH_FIELDS.map((f) => `${f} LIKE ?`).join(' OR ');
+    results = await all(
+      env,
+      `${SEARCH_SELECT}
+       WHERE p.store_id = ? AND (${where} OR c.name LIKE ?)
+       ORDER BY p.name COLLATE NOCASE LIMIT 40`,
+      store.id, like, like, like, like, `%${q}%`
+    );
+  }
   return json(c, 200, { results });
 });
 

@@ -8,6 +8,7 @@ import { str, num } from '../validate';
 import { ownedStore, ownedFloor, touchStore } from '../ownership';
 import { productImagesEnabled } from '../entitlements';
 import { saveImage } from '../storage';
+import { reindexStoreFts } from '../search';
 
 const app = new Hono<AppEnv>();
 
@@ -79,6 +80,8 @@ app.patch('/categories/:id', requireAuth, async (c) => {
   const keys = Object.keys(updates);
   if (keys.length) {
     await run(env, `UPDATE categories SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, ...keys.map((k) => updates[k]), cat.id);
+    // Category renames don't fire the product triggers — refresh the search index.
+    if (updates.name !== undefined) await reindexStoreFts(env, cat.store_id as string);
   }
   return json(c, 200, { category: await first(env, 'SELECT * FROM categories WHERE id = ?', cat.id) });
 });
@@ -88,6 +91,7 @@ app.delete('/categories/:id', requireAuth, async (c) => {
   const cat = await ownedCategory(c, env, c.req.param('id'));
   if (cat instanceof Response) return cat;
   await run(env, 'DELETE FROM categories WHERE id = ?', cat.id);
+  await reindexStoreFts(env, cat.store_id as string); // FK SET NULL bypasses triggers
   await touchStore(env, cat.store_id as string);
   return json(c, 200, { ok: true });
 });

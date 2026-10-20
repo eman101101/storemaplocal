@@ -173,7 +173,63 @@ const MIGRATIONS: { name: string; sql: string }[] = [
       );
     `,
   },
+  {
+    // Full-text search index — same as the Node backend's migration 006.
+    // Rowid-based triggers stay correct through FK SET NULL and cascades.
+    name: '008-product-search-fts',
+    sql: `
+      CREATE VIRTUAL TABLE IF NOT EXISTS products_fts USING fts5(
+        name, brand, sku, barcode, category_name,
+        tokenize = 'unicode61 remove_diacritics 2'
+      );
+
+      INSERT INTO products_fts (rowid, name, brand, sku, barcode, category_name)
+        SELECT p.rowid, p.name, p.brand, p.sku, p.barcode, COALESCE(c.name, '')
+        FROM products p LEFT JOIN categories c ON c.id = p.category_id;
+
+      CREATE TRIGGER IF NOT EXISTS products_fts_ins AFTER INSERT ON products BEGIN
+        INSERT INTO products_fts (rowid, name, brand, sku, barcode, category_name)
+        VALUES (new.rowid, new.name, new.brand, new.sku, new.barcode,
+          COALESCE((SELECT name FROM categories WHERE id = new.category_id), ''));
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS products_fts_upd AFTER UPDATE OF name, brand, sku, barcode, category_id ON products BEGIN
+        DELETE FROM products_fts WHERE rowid = old.rowid;
+        INSERT INTO products_fts (rowid, name, brand, sku, barcode, category_name)
+        VALUES (new.rowid, new.name, new.brand, new.sku, new.barcode,
+          COALESCE((SELECT name FROM categories WHERE id = new.category_id), ''));
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS products_fts_del AFTER DELETE ON products BEGIN
+        DELETE FROM products_fts WHERE rowid = old.rowid;
+      END;
+    `,
+  },
 ];
+
+/**
+ * Split a migration's SQL into statements. Triggers (BEGIN…END blocks) contain
+ * semicolons internally, so a naive ';' split truncates them — accumulate
+ * until BEGIN/END keywords balance instead.
+ */
+function splitStatements(sql: string): string[] {
+  const parts = sql.split(';');
+  const out: string[] = [];
+  let cur = '';
+  for (let i = 0; i < parts.length; i++) {
+    const cand = cur ? `${cur};${parts[i]}` : parts[i];
+    const begins = (cand.match(/\bBEGIN\b/g) || []).length;
+    const ends = (cand.match(/\bEND\b/g) || []).length;
+    if (begins > 0 ? ends >= begins : true) {
+      out.push(cand);
+      cur = '';
+    } else {
+      cur = cand;
+    }
+  }
+  if (cur.trim()) out.push(cur);
+  return out.map((s) => s.trim()).filter(Boolean);
+}
 
 /** Apply pending migrations; memoised per isolate. */
 export async function migrate(env: Env): Promise<void> {
@@ -193,9 +249,8 @@ export async function migrate(env: Env): Promise<void> {
       // ALTER TABLE can't run inside a D1 batch with other DDL; statements run
       // one by one — each migration is idempotent via IF NOT EXISTS / its guard.
       try {
-        for (const statement of m.sql.split(';')) {
-          const sql = statement.trim();
-          if (sql) await run(env, sql);
+        for (const statement of splitStatements(m.sql)) {
+          await run(env, statement);
         }
         await run(env, 'INSERT INTO migrations (name) VALUES (?)', m.name);
       } catch (err) {
