@@ -7,6 +7,7 @@ import { json, badRequest, slugify } from '../http';
 import { str, num } from '../validate';
 import { ownedStore, touchStore } from '../ownership';
 import { entitlementsFor } from '../entitlements';
+import { buildExportBundle, importBundle, TransferError } from '../transfer';
 
 const app = new Hono<AppEnv>();
 
@@ -51,6 +52,33 @@ app.get('/mine', async (c) => {
     c.get('user').id
   );
   return json(c, 200, { stores: rows.map((r) => storeJson(c, r)) });
+});
+
+/**
+ * GET /api/stores/:id/export — self-contained transfer bundle (online ↔
+ * local). `?media=0` skips embedding images for a small metadata-only file.
+ */
+app.get('/:id/export', async (c) => {
+  const env = c.env as Env;
+  const store = await ownedStore(c, env, c.req.param('id'));
+  if (store instanceof Response) return store;
+  const bundle = await buildExportBundle(env, store, c.req.query('media') !== '0');
+  c.header('Content-Disposition', `attachment; filename="${store.slug}-storemap.json"`);
+  return json(c, 200, bundle);
+});
+
+/** POST /api/stores/import — restore an export bundle as a new draft store. */
+app.post('/import', async (c) => {
+  const env = c.env as Env;
+  const bundle = await c.req.json().catch(() => null);
+  try {
+    const { storeId } = await importBundle(env, c.get('user').id, bundle, (name) => uniqueSlug(env, name));
+    const created = await first(env, 'SELECT * FROM stores WHERE id = ?', storeId);
+    return json(c, 201, { store: storeJson(c, created ?? {}) });
+  } catch (err) {
+    if (err instanceof TransferError) return badRequest(c, err.message);
+    throw err;
+  }
 });
 
 app.post('/', async (c) => {
