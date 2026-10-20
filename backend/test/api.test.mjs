@@ -426,3 +426,108 @@ test('upload endpoint validates content type and magic bytes', async () => {
   });
   assert.equal(wrongType.status, 400);
 });
+
+test('search: FTS5 index — prefix, category, updates stay in sync', async () => {
+  const cookie = await loginAs('fts@example.com');
+  const { body } = await call('/api/stores', { method: 'POST', cookie, body: { name: 'FTS Market' } });
+  const storeId = body.store.id;
+  await call(`/api/stores/${storeId}`, { method: 'PATCH', cookie, body: { is_public: true } });
+  const cat = await call(`/api/stores/${storeId}/categories`, {
+    method: 'POST', cookie, body: { name: 'Fromage', color: '#3b6fd4' },
+  });
+  const p1 = await call(`/api/stores/${storeId}/products`, {
+    method: 'POST', cookie, body: { name: 'Crème Fraîche', brand: 'Normandie', sku: 'CFT-1' },
+  });
+  const p2 = await call(`/api/stores/${storeId}/products`, {
+    method: 'POST', cookie, body: { name: 'Cheddar Block', brand: 'Meadow', category_id: cat.body.category.id },
+  });
+  const search = (q) => call(`/api/public/stores/fts-market/search?q=${encodeURIComponent(q)}`);
+
+  // word-prefix match (the FTS path) and diacritics folding
+  assert.equal((await search('fra')).body.results.length, 1);
+  assert.equal((await search('creme')).body.results[0]?.name, 'Crème Fraîche');
+  // brand and sku columns are indexed too
+  assert.equal((await search('normandie')).body.results.length, 1);
+  assert.equal((await search('cft')).body.results.length, 1);
+  // category names are denormalized into the index
+  assert.equal((await search('fromage')).body.results.length, 1);
+  assert.equal((await search('fromage')).body.results[0]?.name, 'Cheddar Block');
+
+  // product renames flow through the update trigger
+  await call(`/api/products/${p1.body.product.id}`, {
+    method: 'PATCH', cookie, body: { name: 'Kefir 1L' },
+  });
+  assert.equal((await search('fra')).body.results.length, 0, 'old name no longer matches');
+  assert.equal((await search('kef')).body.results.length, 1, 'new name matches');
+
+  // category rename triggers a store reindex
+  await call(`/api/categories/${cat.body.category.id}`, {
+    method: 'PATCH', cookie, body: { name: 'Cheese' },
+  });
+  assert.equal((await search('cheese')).body.results.length, 1, 'renamed category matches');
+  assert.equal((await search('fromage')).body.results.length, 0, 'old category name is gone');
+
+  // deletes leave the index
+  await call(`/api/products/${p2.body.product.id}`, { method: 'DELETE', cookie });
+  assert.equal((await search('cheddar')).body.results.length, 0);
+});
+
+test('transfer: export → import round trip (catalog, pins, elements, stock, media)', async () => {
+  const alice = await loginAs('alice-transfer@example.com');
+  const { body } = await call('/api/stores', { method: 'POST', cookie: alice, body: { name: 'Transfer Source' } });
+  const storeId = body.store.id;
+  const floorId = (await call(`/api/stores/${storeId}/full`, { cookie: alice })).body.floors[0].id;
+  await call(`/api/stores/${storeId}/floors`, { method: 'POST', cookie: alice, body: { name: 'Basement', level: 2, width_m: 20, height_m: 15 } });
+  const cat = await call(`/api/stores/${storeId}/categories`, { method: 'POST', cookie: alice, body: { name: 'Drinks', color: '#3b6fd4' } });
+  const prod = await call(`/api/stores/${storeId}/products`, {
+    method: 'POST', cookie: alice, body: { name: 'Kombucha Ginger', sku: 'KOM-1', price: 3.4, category_id: cat.body.category.id },
+  });
+  await call(`/api/products/${prod.body.product.id}/locations`, { method: 'POST', cookie: alice, body: { floor_id: floorId, x: 3.5, y: 4.5 } });
+  await call(`/api/floors/${floorId}/elements`, {
+    method: 'PUT', cookie: alice,
+    body: { elements: [{ type: 'shelf', shape: 'rect', geometry: { x: 1, y: 1, w: 5, h: 1 }, label: 'Wall shelf' }] },
+  });
+  await call(`/api/stores/${storeId}/stock/set`, { method: 'POST', cookie: alice, body: { product_id: prod.body.product.id, quantity: 12 } });
+  // one product image via the upload endpoint → embedded media in the bundle
+  const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489', 'hex');
+  const up = await call('/api/uploads', { method: 'POST', cookie: alice, headers: { 'Content-Type': 'image/png' }, body: png });
+  await call(`/api/products/${prod.body.product.id}`, { method: 'PATCH', cookie: alice, body: { image_url: up.body.url } });
+
+  // export from alice…
+  const exp = await call(`/api/stores/${storeId}/export`, { cookie: alice });
+  assert.equal(exp.status, 200);
+  assert.equal(exp.body.format, 'storemap.export/1');
+  assert.equal(exp.body.media.length, 1, 'product image embedded');
+  assert.equal(exp.body.products.length, 1);
+
+  // …and import as a different owner (the online ↔ local hand-off)
+  const bob = await loginAs('bob-transfer@example.com');
+  const imp = await call('/api/stores/import', { method: 'POST', cookie: bob, body: exp.body });
+  assert.equal(imp.status, 201);
+  const newId = imp.body.store.id;
+  assert.equal(imp.body.store.is_public, false, 'imports start as drafts');
+  assert.equal(imp.body.store.name, 'Transfer Source');
+  assert.notEqual(imp.body.store.slug, 'transfer-source'); // slug collision → suffix
+
+  const full = await call(`/api/stores/${newId}/full`, { cookie: bob });
+  assert.equal(full.body.floors.length, 2);
+  assert.equal(full.body.products.length, 1);
+  assert.equal(full.body.products[0].name, 'Kombucha Ginger');
+  assert.equal(full.body.products[0].category_name, 'Drinks');
+  assert.ok(full.body.products[0].image_url.startsWith('/uploads/'));
+  assert.notEqual(full.body.products[0].image_url, up.body.url, 'media re-saved under a new path');
+  assert.equal(full.body.elements.length, 1);
+  assert.equal(full.body.locations.length, 1);
+  assert.equal(full.body.locations[0].x, 3.5);
+
+  const stock = await call(`/api/stores/${newId}/stock`, { cookie: bob });
+  assert.equal(stock.body.stock[0].quantity, 12, 'stock levels carried over');
+
+  // the re-saved image actually serves
+  const img = await call(full.body.products[0].image_url);
+  assert.equal(img.status, 200);
+
+  // junk is rejected cleanly
+  const bad = await call('/api/stores/import', { method: 'POST', cookie: bob, body: { hello: 1 } });
+  assert.equal(bad.status, 400);
+});

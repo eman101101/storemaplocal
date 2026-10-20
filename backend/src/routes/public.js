@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { handler, sendJson, badRequest } from '../lib/http.js';
 import { edgeCache } from '../lib/cdn.js';
+import { ftsExpression } from '../lib/search.js';
 
 const router = Router();
 
@@ -83,6 +84,14 @@ router.get('/stores/:slug', handler(async (req, res) => {
 }));
 
 const SEARCH_FIELDS = ['p.name', 'p.brand', 'p.sku', 'p.barcode'];
+const SEARCH_SELECT = `SELECT p.id, p.name, p.brand, p.sku, p.price, p.image_url,
+        c.name AS category_name, c.color AS category_color,
+        l.floor_id, l.x, l.y,
+        f.name AS floor_name
+ FROM products p
+ LEFT JOIN categories c ON c.id = p.category_id
+ LEFT JOIN product_locations l ON l.product_id = p.id
+ LEFT JOIN floors f ON f.id = l.floor_id`;
 
 router.get('/stores/:slug/search', handler(async (req, res) => {
   const slug = String(req.params.slug).slice(0, 120);
@@ -90,23 +99,33 @@ router.get('/stores/:slug/search', handler(async (req, res) => {
   const store = db.prepare('SELECT id FROM stores WHERE slug = ? AND is_public = 1').get(slug);
   if (!store) return sendJson(res, 404, { error: 'Store not found' });
   if (!q) return sendJson(res, 200, { results: [] });
-  const like = `%${q}%`;
-  const where = SEARCH_FIELDS.map((f) => `${f} LIKE ?`).join(' OR ');
-  const categoryLike = `%${q}%`;
-  const results = db
-    .prepare(
-      `SELECT p.id, p.name, p.brand, p.sku, p.price, p.image_url,
-              c.name AS category_name, c.color AS category_color,
-              l.floor_id, l.x, l.y,
-              f.name AS floor_name
-       FROM products p
-       LEFT JOIN categories c ON c.id = p.category_id
-       LEFT JOIN product_locations l ON l.product_id = p.id
-       LEFT JOIN floors f ON f.id = l.floor_id
-       WHERE p.store_id = ? AND (${where} OR c.name LIKE ?)
-       ORDER BY p.name COLLATE NOCASE LIMIT 40`
-    )
-    .all(store.id, like, like, like, like, categoryLike);
+
+  // FTS5 path: inverted-index prefix match (name, brand, sku, barcode AND
+  // category name, denormalized into the index) — a keystroke costs an index
+  // lookup instead of a full catalog scan.
+  const match = ftsExpression(q);
+  let results;
+  if (match) {
+    results = db
+      .prepare(
+        `${SEARCH_SELECT}
+         JOIN products_fts fts ON fts.rowid = p.rowid
+         WHERE products_fts MATCH ? AND p.store_id = ?
+         ORDER BY p.name COLLATE NOCASE LIMIT 40`
+      )
+      .all(match, store.id);
+  } else {
+    // Fallback for input with no word characters (e.g. "###").
+    const like = `%${q}%`;
+    const where = SEARCH_FIELDS.map((f) => `${f} LIKE ?`).join(' OR ');
+    results = db
+      .prepare(
+        `${SEARCH_SELECT}
+         WHERE p.store_id = ? AND (${where} OR c.name LIKE ?)
+         ORDER BY p.name COLLATE NOCASE LIMIT 40`
+      )
+      .all(store.id, like, like, like, like, `%${q}%`);
+  }
   sendJson(res, 200, { results });
 }));
 

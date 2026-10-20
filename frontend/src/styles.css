@@ -849,3 +849,5 @@ html[data-mode='dark'] .store-status.live { color: #6cc180; }
   .lh-qr { flex-direction: column; }
   .lh-qr-img { align-self: center; }
 }
+
+.page-head-actions { display: flex; gap: 8px; align-items: center; }

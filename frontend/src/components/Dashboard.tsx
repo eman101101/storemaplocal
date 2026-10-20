@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { api } from '../api';
@@ -16,6 +16,8 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
   const [qrStore, setQrStore] = useState<StoreSummary | null>(null);
   const [error, setError] = useState('');
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!loading && !user) navigate('/login', { replace: true });
@@ -28,6 +30,22 @@ export default function Dashboard() {
     if (user) load();
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** Restore a transfer bundle exported from another StoreMap instance. */
+  const importFile = async (file: File) => {
+    setImporting(true);
+    setError('');
+    try {
+      const { store } = await api.importStore(file);
+      navigate(`/dashboard/stores/${store.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Import failed');
+      load();
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
   if (loading || !user) return <main className="container"><p className="muted">Loading…</p></main>;
 
   return (
@@ -39,9 +57,21 @@ export default function Dashboard() {
             Draw a top-down map, pin products, and share a public link with shoppers.
           </p>
         </div>
-        <button className="btn primary" onClick={() => setCreating(true)}>
-          + New store
-        </button>
+        <div className="page-head-actions">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            style={{ display: 'none' }}
+            onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])}
+          />
+          <button className="btn" disabled={importing} onClick={() => fileRef.current?.click()} title="Import a map exported from another StoreMap instance">
+            {importing ? 'Importing…' : '⬆ Import map'}
+          </button>
+          <button className="btn primary" onClick={() => setCreating(true)}>
+            + New store
+          </button>
+        </div>
       </div>
 
       {error && <div className="error-note">{error}</div>}
@@ -157,6 +187,13 @@ function StoreCard({ store, onChanged, onQR }: { store: StoreSummary; onChanged:
             }}
           >
             {copying ? '…' : '⧉'}
+          </button>
+          <button
+            className="btn sm ghost"
+            title="Export a transfer file (map, catalog, images) — import it on another StoreMap instance"
+            onClick={() => api.exportStore(store.id, store.slug).catch((e) => window.alert(e instanceof Error ? e.message : 'Export failed'))}
+          >
+            ⬇
           </button>
           <button className="btn sm ghost" onClick={() => setConfirming(true)} title="Delete this store">🗑</button>
         </div>

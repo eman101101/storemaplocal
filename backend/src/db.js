@@ -173,6 +173,41 @@ const MIGRATIONS = [
       ALTER TABLE stores ADD COLUMN plan TEXT NOT NULL DEFAULT 'free';
     `,
   },
+  {
+    // Full-text search index (docs/INFRASTRUCTURE.md — search cost at scale):
+    // LIKE '%q%' scans a store's whole catalog per keystroke; FTS5 serves the
+    // same queries from an inverted index. Kept in sync by triggers; category
+    // renames are handled by lib/search.js's reindexStoreFts (FK ON DELETE
+    // SET NULL actions bypass UPDATE triggers).
+    name: '006-product-search-fts',
+    sql: `
+      CREATE VIRTUAL TABLE products_fts USING fts5(
+        name, brand, sku, barcode, category_name,
+        tokenize = 'unicode61 remove_diacritics 2'
+      );
+
+      INSERT INTO products_fts (rowid, name, brand, sku, barcode, category_name)
+        SELECT p.rowid, p.name, p.brand, p.sku, p.barcode, COALESCE(c.name, '')
+        FROM products p LEFT JOIN categories c ON c.id = p.category_id;
+
+      CREATE TRIGGER products_fts_ins AFTER INSERT ON products BEGIN
+        INSERT INTO products_fts (rowid, name, brand, sku, barcode, category_name)
+        VALUES (new.rowid, new.name, new.brand, new.sku, new.barcode,
+          COALESCE((SELECT name FROM categories WHERE id = new.category_id), ''));
+      END;
+
+      CREATE TRIGGER products_fts_upd AFTER UPDATE OF name, brand, sku, barcode, category_id ON products BEGIN
+        DELETE FROM products_fts WHERE rowid = old.rowid;
+        INSERT INTO products_fts (rowid, name, brand, sku, barcode, category_name)
+          VALUES (new.rowid, new.name, new.brand, new.sku, new.barcode,
+            COALESCE((SELECT name FROM categories WHERE id = new.category_id), ''));
+      END;
+
+      CREATE TRIGGER products_fts_del AFTER DELETE ON products BEGIN
+        DELETE FROM products_fts WHERE rowid = old.rowid;
+      END;
+    `,
+  },
 ];
 
 export function migrate() {

@@ -1,5 +1,5 @@
 import { config } from '../config.js';
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { db, newId } from '../db.js';
 import { geocode } from '../lib/geocode.js';
 import { requireAuth } from '../auth/session.js';
@@ -7,6 +7,7 @@ import { handler, sendJson, badRequest, slugify } from '../lib/http.js';
 import { str, num } from '../lib/validate.js';
 import { ownedStore, touchStore } from '../lib/ownership.js';
 import { entitlementsFor } from '../lib/entitlements.js';
+import { buildExportBundle, importBundle, TransferError } from '../lib/transfer.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -44,6 +45,34 @@ router.get('/mine', handler(async (req, res) => {
       FROM stores s WHERE s.owner_id = ? ORDER BY s.created_at DESC`)
     .all(req.user.id);
   sendJson(res, 200, { stores: rows.map(storeJson) });
+}));
+
+/**
+ * GET /api/stores/:id/export — self-contained transfer bundle (online ↔
+ * local). `?media=0` skips embedding images for a small metadata-only file.
+ */
+router.get('/:id/export', requireAuth, handler(async (req, res) => {
+  const store = await ownedStore(req, res, req.params.id);
+  if (!store) return;
+  const bundle = buildExportBundle(store, { withMedia: req.query.media !== '0' });
+  res.setHeader('Content-Disposition', `attachment; filename="${store.slug}-storemap.json"`);
+  sendJson(res, 200, bundle);
+}));
+
+/**
+ * POST /api/stores/import — restore an export bundle as a new draft store
+ * owned by the importer. Larger body limit than the API default: bundles
+ * embed product images.
+ */
+router.post('/import', requireAuth, express.json({ limit: '64mb' }), handler(async (req, res) => {
+  try {
+    const { storeId } = await importBundle(req.body, req.user.id, { uniqueSlug });
+    const store = db.prepare('SELECT * FROM stores WHERE id = ?').get(storeId);
+    sendJson(res, 201, { store: storeJson(store) });
+  } catch (err) {
+    if (err instanceof TransferError) return badRequest(res, err.message);
+    throw err;
+  }
 }));
 
 router.post('/', handler(async (req, res) => {

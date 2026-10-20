@@ -12,11 +12,12 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFile = init?.body instanceof File;
   const res = await fetch(path, {
     credentials: 'same-origin',
     ...init,
     headers: {
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init?.body && !isFile ? { 'Content-Type': 'application/json' } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -57,6 +58,20 @@ export const api = {
   // Stores
   duplicateStore: (id: string, name?: string) =>
     request<{ store: Store }>(`/api/stores/${id}/duplicate`, { method: 'POST', body: json({ name }) }),
+  /** Download a self-contained transfer bundle (map + catalog + images). */
+  exportStore: async (id: string, slug: string) => {
+    const res = await fetch(`/api/stores/${id}/export`, { credentials: 'same-origin' });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Export failed');
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${slug}-storemap.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  },
+  /** Restore a transfer bundle as a new draft store on this instance. */
+  importStore: (file: File) =>
+    request<{ store: Store }>('/api/stores/import', { method: 'POST', body: file }),
   myStores: () => request<{ stores: StoreSummary[] }>('/api/stores/mine'),
   createStore: (body: Partial<Store>) =>
     request<{ store: Store }>('/api/stores', { method: 'POST', body: json(body) }),

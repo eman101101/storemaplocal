@@ -5,6 +5,7 @@ import { requireAuth } from '../auth/session.js';
 import { handler, sendJson, badRequest, rateLimit } from '../lib/http.js';
 import { str, num } from '../lib/validate.js';
 import { ownedStore, ownedFloor, touchStore } from '../lib/ownership.js';
+import { reindexStoreFts } from '../lib/search.js';
 import { productImagesEnabled } from '../lib/entitlements.js';
 import { saveImage } from '../lib/storage.js';
 import { config } from '../config.js';
@@ -64,6 +65,9 @@ router.patch('/categories/:id', requireAuth, handler(async (req, res) => {
     db.prepare(`UPDATE categories SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(
       ...keys.map((k) => updates[k]), cat.id
     );
+    // Category renames don't fire the products triggers — refresh the store's
+    // search index so its products stay findable by the new name.
+    if (updates.name !== undefined) reindexStoreFts(db, cat.store_id);
   }
   sendJson(res, 200, { category: db.prepare('SELECT * FROM categories WHERE id = ?').get(cat.id) });
 }));
@@ -72,6 +76,7 @@ router.delete('/categories/:id', requireAuth, handler(async (req, res) => {
   const cat = ownedCategory(req, res, req.params.id);
   if (!cat) return;
   db.prepare('DELETE FROM categories WHERE id = ?').run(cat.id);
+  reindexStoreFts(db, cat.store_id); // FK ON DELETE SET NULL bypasses triggers
   touchStore(cat.store_id);
   sendJson(res, 200, { ok: true });
 }));
